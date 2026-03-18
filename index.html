@@ -134,7 +134,7 @@
         try {
           const raw = sessionStorage.getItem('ca_session');
           if (!raw) {
-            window.location.href = '../ACCOUNT/login.html';
+            window.location.href = 'login.html';
             return;
           }
 
@@ -143,14 +143,14 @@
           // Check expiry
           if (!session.expires_at || new Date(session.expires_at) <= new Date()) {
             sessionStorage.removeItem('ca_session');
-            window.location.href = '../ACCOUNT/login.html';
+            window.location.href = 'login.html';
             return;
           }
 
           // Check role
           if (session.role !== 'client_admin') {
             sessionStorage.removeItem('ca_session');
-            window.location.href = '../ACCOUNT/login.html';
+            window.location.href = 'login.html';
             return;
           }
 
@@ -208,7 +208,7 @@
         } catch (e) {
           console.error('Auth check failed:', e);
           sessionStorage.removeItem('ca_session');
-          window.location.href = '../ACCOUNT/login.html';
+          window.location.href = 'login.html';
         }
       })();
 
@@ -231,7 +231,7 @@
 
       document.getElementById('confirmLogout').addEventListener('click', () => {
         sessionStorage.removeItem('ca_session');
-        window.location.href = '../ACCOUNT/login.html';
+        window.location.href = 'login.html';
       });
     </script>
   </body>
