@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>About Settings</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link rel="stylesheet" href="about.css">
+</head>
+<body>
+<div class="module">
+
+  <!-- App Info Card -->
+  <div class="card">
+    <div class="about-hero">
+      <div class="about-logo"><i class="fa fa-bus"></i></div>
+      <div class="about-app-name">TrackIt Admin</div>
+      <div class="about-tagline">Public Transport Management System</div>
+      <div class="about-version"><i class="fa fa-tag"></i> Version 1.0.0</div>
+    </div>
+    <div class="card-body">
+      <div class="about-info-grid">
+        <div class="about-info-item"><div class="about-info-label">Platform</div><div class="about-info-value">Web (Admin Panel)</div></div>
+        <div class="about-info-item"><div class="about-info-label">Role</div><div class="about-info-value" id="adminRole">—</div></div>
+        <div class="about-info-item"><div class="about-info-label">Build Date</div><div class="about-info-value">March 2026</div></div>
+        <div class="about-info-item"><div class="about-info-label">Environment</div><div class="about-info-value">Production</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tech Stack Card -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-head-icon chi-blue"><i class="fa fa-layer-group"></i></div>
+      <div class="card-head-info"><h2>Tech Stack</h2><p>Technologies powering this system</p></div>
+    </div>
+    <div class="about-sectio  n-label">Backend & Database</div>
+    <div class="about-tech-list">
+      <div class="about-tech-item"><span class="about-tech-name"><i class="fa fa-database"></i> Supabase</span><span class="about-tech-ver">PostgreSQL · Auth · Realtime</span></div>
+      <div class="about-tech-item"><span class="about-tech-name"><i class="fa fa-server"></i> PostgreSQL</span><span class="about-tech-ver">v15</span></div>
+    </div>
+    <div class="about-section-label">Frontend</div>
+    <div class="about-tech-list">
+      <div class="about-tech-item"><span class="about-tech-name"><i class="fa fa-code"></i> HTML / CSS / JS</span><span class="about-tech-ver">Vanilla · No framework</span></div>
+      <div class="about-tech-item"><span class="about-tech-name"><i class="fa fa-map"></i> Leaflet.js</span><span class="about-tech-ver">v1.9.4</span></div>
+      <div class="about-tech-item"><span class="about-tech-name"><i class="fa fa-font"></i> DM Sans</span><span class="about-tech-ver">Google Fonts</span></div>
+    </div>
+
+    <div class="about-footer">Built for <strong>Public Transport (Modern Jeepney) Tracking System </strong> · Cagayan de Oro City &nbsp;·&nbsp; © 2026</div>
+  </div>
+
+  <!-- System Status Card -->
+  <div class="card">
+    
+    <div class="card-head">
+      <div class="card-head-icon chi-success"><i class="fa fa-shield-halved"></i></div>
+      <div class="card-head-info"><h2>System Status</h2><p>Connection and service health</p></div>
+    </div>
+    <div class="card-body">
+      <div class="status-item">
+        <div class="status-info"><i class="fa fa-database"></i>
+          <div class="status-label"><div class="status-label-title">Supabase Database</div><div class="status-label-desc">PostgreSQL Connection</div></div>
+        </div>
+        <span class="status-badge online" id="dbStatus"><span class="status-dot"></span> Checking...</span>
+      </div>
+      <div class="status-item">
+        <div class="status-info"><i class="fa fa-bolt"></i>
+          <div class="status-label"><div class="status-label-title">Realtime</div><div class="status-label-desc">WebSocket Connection</div></div>
+        </div>
+        <span class="status-badge online" id="realtimeStatus"><span class="status-dot"></span> Checking...</span>
+      </div>
+      <div class="status-item">
+        <div class="status-info"><i class="fa fa-user-shield"></i>
+          <div class="status-label"><div class="status-label-title">Admin Session</div><div class="status-label-desc">Logged in as</div></div>
+        </div>
+        <span class="status-badge online" id="sessionStatus"><span class="status-dot"></span> Checking...</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const SUPABASE_URL      = 'https://tvbzpdjsyuxiguqrpfag.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2YnpwZGpzeXV4aWd1cXJwZmFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NzgxMDgsImV4cCI6MjA4ODM1NDEwOH0.JS04q7iiTPVnGIKS9kCa6sFzl0Cr6ot2rx-jTs9m6dQ';
+  const SESSION_KEY       = 'ca_session';
+
+  function resizeFrame() { window.parent.postMessage({type:'resizeFrame',height:document.body.scrollHeight},'*'); }
+
+  function getSession() {
+    try {
+      const s = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
+      if (s && new Date(s.expires_at) > new Date()) return s;
+    } catch(e) {}
+    return null;
+  }
+
+  async function checkDbStatus() {
+    const el = document.getElementById('dbStatus');
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/client_admin?select=id&limit=1`, {
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }
+      });
+      if (res.ok || res.status===406) {
+        el.className='status-badge online';
+        el.innerHTML='<span class="status-dot"></span> Connected';
+      } else throw new Error(res.status);
+    } catch(e) {
+      el.className='status-badge offline';
+      el.innerHTML='<span class="status-dot"></span> Offline';
+    }
+  }
+
+  async function checkRealtimeStatus() {
+    const el = document.getElementById('realtimeStatus');
+    try {
+      await fetch(`${SUPABASE_URL}/realtime/v1/websocket?apikey=${SUPABASE_ANON_KEY}&vsn=1.0.0`,{method:'HEAD',mode:'no-cors'});
+      el.className='status-badge online';
+      el.innerHTML='<span class="status-dot"></span> Active';
+    } catch(e) {
+      el.className='status-badge offline';
+      el.innerHTML='<span class="status-dot"></span> Unavailable';
+    }
+  }
+
+  function setSessionStatus(session) {
+    const el = document.getElementById('sessionStatus');
+    if (session) {
+      el.className='status-badge online';
+      el.innerHTML=`<span class="status-dot"></span> ${session.name}`;
+      document.getElementById('adminRole').textContent = session.role === 'client_admin' ? 'Client Admin' : session.role;
+    } else {
+      el.className='status-badge offline';
+      el.innerHTML='<span class="status-dot"></span> Not Logged In';
+    }
+  }
+
+  async function init() {
+    const session = getSession();
+    setSessionStatus(session);
+    await Promise.all([checkDbStatus(), checkRealtimeStatus()]);
+    resizeFrame();
+  }
+
+  init();
+</script>
+</body>
+</html>

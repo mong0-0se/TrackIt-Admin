@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Client Admin - Sign In</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+      :root {
+        --teal: #0f1f3d;
+        --teal-light: #1a3460;
+        --accent: #2563eb;
+        --accent-light: #eef4ff;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        overflow-x: hidden;
+      }
+
+      .login-page { min-height: 100vh; display: flex; }
+
+      /* Left Panel */
+      .left-panel {
+        background: linear-gradient(155deg, var(--teal) 0%, var(--teal-light) 100%);
+        padding: 3rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        position: relative;
+        overflow: hidden;
+      }
+      .left-panel::before {
+        content: "";
+        position: absolute;
+        width: 480px; height: 480px;
+        border-radius: 50%;
+        border: 1px solid rgba(255,255,255,0.05);
+        top: -140px; right: -140px;
+      }
+      .left-panel::after {
+        content: "";
+        position: absolute;
+        width: 280px; height: 280px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.03);
+        bottom: -100px; left: -70px;
+      }
+      .brand { display:flex; align-items:center; gap:.75rem; position:relative; z-index:1; }
+      .brand-icon {
+        width:42px; height:42px;
+        background:rgba(255,255,255,0.1);
+        border:1px solid rgba(255,255,255,0.15);
+        border-radius:12px;
+        display:flex; align-items:center; justify-content:center;
+        color:white; font-size:1.125rem;
+      }
+      .brand-name { font-size:1.25rem; font-weight:800; color:white; letter-spacing:-0.3px; }
+      .left-content { position:relative; z-index:1; }
+      .setup-badge {
+        display:inline-flex; align-items:center; gap:.375rem;
+        background:rgba(255,255,255,0.07);
+        border:1px solid rgba(255,255,255,0.1);
+        border-radius:20px; padding:.3rem .8rem;
+        margin-bottom:1.5rem;
+        font-size:.625rem; font-weight:700;
+        color:rgba(255,255,255,0.6);
+        letter-spacing:1px; text-transform:uppercase;
+      }
+      .left-content h2 {
+        font-size:2.25rem; font-weight:800; color:white;
+        letter-spacing:-1px; line-height:1.15; margin-bottom:1rem;
+      }
+      .left-content p { font-size:.875rem; color:rgba(255,255,255,0.45); line-height:1.75; max-width:300px; }
+      .feature-list { margin-top:2.5rem; display:flex; flex-direction:column; gap:.875rem; }
+      .feature-item { display:flex; align-items:center; gap:.875rem; }
+      .feature-icon {
+        width:34px; height:34px; border-radius:10px;
+        background:rgba(255,255,255,0.07);
+        border:1px solid rgba(255,255,255,0.09);
+        display:flex; align-items:center; justify-content:center;
+        flex-shrink:0; color:rgba(255,255,255,0.65); font-size:.8125rem;
+      }
+      .feature-item span { font-size:.8125rem; color:rgba(255,255,255,0.5); font-weight:500; }
+      .left-footer { font-size:.6875rem; color:rgba(255,255,255,0.2); position:relative; z-index:1; }
+
+      /* Right Panel */
+      .right-panel {
+        background: #f7f8fa;
+        padding: 2rem 3rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .form-container { width:100%; max-width:420px; }
+      .form-header h3 {
+        font-size:1.375rem; font-weight:800; color:var(--teal);
+        letter-spacing:-0.4px; margin-bottom:.5rem;
+      }
+      .form-header p { font-size:.8125rem; color:#94a3b8; margin-bottom:1.5rem; }
+
+      .security-notice {
+        background:var(--accent-light);
+        border:1px solid rgba(37,99,235,0.15);
+        border-radius:.5rem; padding:.75rem 1rem;
+        margin-bottom:1.25rem;
+        display:flex; align-items:center; gap:.625rem;
+      }
+      .security-notice i { color:var(--accent); font-size:.875rem; flex-shrink:0; }
+      .security-notice p { font-size:.75rem; color:var(--accent); font-weight:500; line-height:1.45; margin:0; }
+
+      .error-notice {
+        background:#fef2f2;
+        border:1px solid rgba(220,38,38,0.2);
+        border-radius:.5rem; padding:.75rem 1rem;
+        margin-bottom:1.25rem;
+        display:none; align-items:center; gap:.625rem;
+      }
+      .error-notice.show { display:flex; }
+      .error-notice i { color:#dc2626; font-size:.875rem; flex-shrink:0; }
+      .error-notice p { font-size:.75rem; color:#dc2626; font-weight:500; line-height:1.45; margin:0; }
+
+      .form-card {
+        background:white; border-radius:.75rem;
+        border:1px solid #e2e8f0;
+        box-shadow:0 4px 20px rgba(0,0,0,0.06);
+        overflow:hidden;
+      }
+      .form-card-body { padding:1.5rem; }
+      .form-card-footer {
+        padding:1rem 1.5rem;
+        border-top:1px solid #e2e8f0;
+        background:#f7f8fa;
+      }
+      .form-label {
+        font-size:.65rem; font-weight:700; color:#64748b;
+        letter-spacing:.7px; text-transform:uppercase; margin-bottom:.375rem;
+      }
+      .input-group { margin-bottom:.75rem; }
+      .input-group-text {
+        background:#f0f2f5; border:1.5px solid #e2e8f0;
+        border-right:none; padding:.5625rem .6875rem;
+        color:#94a3b8; font-size:.75rem;
+      }
+      .form-control {
+        background:#f0f2f5; border:1.5px solid #e2e8f0;
+        border-left:none; padding:.5625rem .6875rem;
+        font-size:.8125rem; color:var(--teal); transition:all .2s;
+      }
+      .form-control:focus {
+        background:white; border-color:var(--accent);
+        box-shadow:0 0 0 3px rgba(37,99,235,0.08); outline:none;
+      }
+      .input-group:focus-within .input-group-text { border-color:var(--accent); background:white; }
+      .password-toggle {
+        background:#f0f2f5; border:1.5px solid #e2e8f0;
+        border-left:none; padding:.5625rem .6875rem;
+        cursor:pointer; color:#94a3b8; font-size:.75rem; transition:all .2s;
+      }
+      .password-toggle:hover { color:#64748b; background:white; }
+      .input-group:focus-within .password-toggle { border-color:var(--accent); background:white; }
+
+      .btn {
+        padding:.6875rem 1rem; border-radius:.5rem;
+        font-size:.8125rem; font-weight:700; transition:all .2s;
+      }
+      .btn-primary {
+        background:var(--teal); border:none; color:white;
+        box-shadow:0 2px 8px rgba(15,31,61,0.18);
+      }
+      .btn-primary:hover:not(:disabled) {
+        background:var(--teal-light);
+        transform:translateY(-1px);
+        box-shadow:0 4px 14px rgba(15,31,61,0.26);
+      }
+      .btn-primary:disabled { opacity:.65; cursor:not-allowed; transform:none; }
+
+      .back-link {
+        text-align:center; margin-top:1rem;
+        font-size:.75rem; color:#94a3b8;
+      }
+      .back-link a { color:var(--accent); text-decoration:none; font-weight:600; }
+      .back-link a:hover { text-decoration:underline; }
+
+      @keyframes spin { to { transform:rotate(360deg); } }
+
+      @media (max-width:991.98px) {
+        .login-page { flex-direction:column; }
+        .left-panel { padding:2rem 1.5rem; }
+        .left-panel::before, .left-panel::after { display:none; }
+        .right-panel { padding:1.75rem 1.25rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="login-page">
+
+      <!-- Left Panel -->
+      <div class="left-panel col-lg-6">
+        <div class="brand">
+          <div class="brand-icon"><i class="bi bi-bus-front-fill"></i></div>
+          <span class="brand-name">TrackIt</span>
+        </div>
+        <div class="left-content">
+          <div class="setup-badge">
+            <i class="bi bi-person-badge"></i><span>Client Admin Portal</span>
+          </div>
+          <h2>Welcome<br/>back,<br/>Admin.</h2>
+          <p>Sign in to access your Client Administrator dashboard and manage your organization's transport routes and personnel.</p>
+          <div class="feature-list">
+            <div class="feature-item">
+              <div class="feature-icon"><i class="bi bi-diagram-3-fill"></i></div>
+              <span>Route Management</span>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon"><i class="bi bi-people-fill"></i></div>
+              <span>Personnel Management</span>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon"><i class="bi bi-geo-alt-fill"></i></div>
+              <span>Live Vehicle Tracking</span>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon"><i class="bi bi-bar-chart-fill"></i></div>
+              <span>Reports & Analytics</span>
+            </div>
+          </div>
+        </div>
+        <div class="left-footer">© 2026 TrackIt. Public Transport Tracker.</div>
+      </div>
+
+      <!-- Right Panel -->
+      <div class="right-panel col-lg-6">
+        <div class="form-container">
+          <div class="form-header">
+            <h3>Client Admin Sign In</h3>
+            <p>Enter your credentials to access your organization's dashboard.</p>
+          </div>
+
+          <div class="security-notice">
+            <i class="bi bi-person-badge"></i>
+            <p>Access is restricted to authorized Client Administrators only.</p>
+          </div>
+
+          <div class="error-notice" id="errorNotice">
+            <i class="bi bi-exclamation-circle-fill"></i>
+            <p id="errorMsg">Invalid email or password.</p>
+          </div>
+
+          <div class="form-card">
+            <div class="form-card-body">
+
+              <!-- Email -->
+              <div class="mb-3">
+                <label for="email" class="form-label">Email Address</label>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-envelope-fill"></i></span>
+                  <input type="email" class="form-control" id="email"
+                    placeholder="admin@organization.com" autocomplete="email"/>
+                </div>
+              </div>
+
+              <!-- Password -->
+              <div class="mb-0">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                  <label for="password" class="form-label mb-0">Password</label>
+                </div>
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+                  <input type="password" class="form-control" id="password"
+                    placeholder="Enter your password" autocomplete="current-password"/>
+                  <button class="password-toggle" type="button" id="togglePwd">
+                    <i class="bi bi-eye" id="togglePwdIcon"></i>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+            <div class="form-card-footer">
+              <div class="d-grid">
+                <button type="button" class="btn btn-primary" id="signInBtn" onclick="signIn()">
+                  <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="back-link">
+            Need help? <a href="#">Contact your Super Administrator</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      const SUPABASE_URL  = 'https://tvbzpdjsyuxiguqrpfag.supabase.co';
+      const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2YnpwZGpzeXV4aWd1cXJwZmFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NzgxMDgsImV4cCI6MjA4ODM1NDEwOH0.JS04q7iiTPVnGIKS9kCa6sFzl0Cr6ot2rx-jTs9m6dQ';
+      const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+      // ── Password toggle ──
+      document.getElementById('togglePwd').addEventListener('click', function(){
+        const input = document.getElementById('password');
+        const icon  = document.getElementById('togglePwdIcon');
+        if(input.type === 'password'){
+          input.type = 'text';
+          icon.className = 'bi bi-eye-slash';
+        } else {
+          input.type = 'password';
+          icon.className = 'bi bi-eye';
+        }
+      });
+
+      // ── Enter key submits ──
+      document.getElementById('email').addEventListener('keydown',    e => { if(e.key==='Enter') signIn(); });
+      document.getElementById('password').addEventListener('keydown', e => { if(e.key==='Enter') signIn(); });
+
+      // ── Sign In ──
+      async function signIn(){
+        const email    = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+        const errorEl  = document.getElementById('errorNotice');
+        const errorMsg = document.getElementById('errorMsg');
+        const btn      = document.getElementById('signInBtn');
+
+        // Hide previous error
+        errorEl.classList.remove('show');
+
+        if(!email || !password){
+          errorMsg.textContent = 'Please enter your email and password.';
+          errorEl.classList.add('show');
+          return;
+        }
+
+        // Loading state
+        btn.disabled = true;
+        btn.innerHTML = '<span style="display:inline-block;animation:spin 0.8s linear infinite" class="me-2"><i class="bi bi-arrow-repeat"></i></span>Signing in…';
+
+        try {
+          // Look up admin by email
+          const { data: admins, error } = await sb
+            .from('client_admin')
+            .select('id, name, email, password_hash, status, client_id')
+            .eq('email', email)
+            .limit(1);
+
+          if(error) throw error;
+
+          if(!admins || admins.length === 0){
+            throw new Error('No account found with that email address.');
+          }
+
+          const admin = admins[0];
+
+          // Check status
+          if(admin.status === 'inactive'){
+            throw new Error('Your account has been deactivated. Contact your Super Administrator.');
+          }
+
+          // Check password (plain text comparison — matches how it was stored)
+          if(admin.password_hash !== password){
+            throw new Error('Incorrect password. Please try again.');
+          }
+
+          // Save session to sessionStorage
+          const session = {
+            id:        admin.id,
+            name:      admin.name,
+            email:     admin.email,
+            client_id: admin.client_id,
+            role:      'client_admin',
+            expires_at: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString() // 8 hours
+          };
+          sessionStorage.setItem('ca_session', JSON.stringify(session));
+
+          // Update last login timestamp
+          await sb.from('client_admin')
+            .update({ updated_at: new Date().toISOString() })
+            .eq('id', admin.id);
+
+          // Redirect to dashboard
+          btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Success! Redirecting…';
+          setTimeout(() => {
+            window.location.href = '../ADMIN/index.html';
+          }, 800);
+
+        } catch(e) {
+          errorMsg.textContent = e.message || 'Sign in failed. Please try again.';
+          errorEl.classList.add('show');
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-box-arrow-in-right me-2"></i>Sign In';
+        }
+      }
+
+      // ── Redirect if already logged in ──
+      (function(){
+        try {
+          const s = JSON.parse(sessionStorage.getItem('ca_session') || 'null');
+          if(s && new Date(s.expires_at) > new Date()){
+            window.location.href = '../ADMIN/index.html';
+          }
+        } catch(e){}
+      })();
+    </script>
+  </body>
+</html>

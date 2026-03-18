@@ -1,0 +1,80 @@
+/* ================================================================
+   TrackIt — Vehicle Management
+   vehicles.css  |  Vehicle grid & card styles
+   ================================================================ */
+
+/* ── VEHICLE GRID ───────────────────────────────────────────────── */
+.vehicles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+/* ── VEHICLE CARD ───────────────────────────────────────────────── */
+.vehicle-card {
+  background: var(--surface);
+  border: 1.5px solid var(--divider);
+  border-radius: var(--radius);
+  padding: 18px;
+  transition: all .2s;
+}
+.vehicle-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 4px 16px rgba(37, 99, 235, .1);
+  transform: translateY(-1px);
+}
+
+/* ── STATUS STRIP ───────────────────────────────────────────────── */
+.card-strip {
+  height: 3px;
+  border-radius: 2px;
+  margin-bottom: 16px;
+}
+.strip-available      { background: var(--success); }
+.strip-in_service     { background: var(--accent); }
+.strip-maintenance    { background: var(--danger); }
+.strip-out_of_service { background: var(--text-muted); }
+
+/* ── CARD HEADER ────────────────────────────────────────────────── */
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 10px;
+}
+.card-icon-wrap { display: flex; align-items: center; gap: 11px; }
+.card-icon {
+  width: 42px; height: 42px;
+  border-radius: 10px;
+  background: var(--navy);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; color: #fff; flex-shrink: 0;
+}
+.card-plate { font-size: 14px; font-weight: 800; color: var(--text-primary); line-height: 1.2; }
+.card-name  { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; }
+
+/* ── CARD INFO ──────────────────────────────────────────────────── */
+.card-info { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.info-item { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+.info-label { color: var(--text-muted); font-weight: 500; }
+.info-value { color: var(--text-primary); font-weight: 700; text-align: right; }
+
+/* ── CARD ACTIONS ───────────────────────────────────────────────── */
+.card-actions {
+  display: flex; gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--divider);
+}
+.card-btn {
+  flex: 1; padding: 8px 10px;
+  border: none; border-radius: var(--radius-sm);
+  font-size: 11.5px; font-weight: 700;
+  cursor: pointer; transition: all .2s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-family: "DM Sans", sans-serif;
+}
+.cb-primary { background: var(--navy); color: #fff; }
+.cb-primary:hover { background: var(--navy-light); }
+.cb-danger  { background: var(--danger-light); color: var(--danger); }
+.cb-danger:hover  { background: rgba(220, 38, 38, .15); }

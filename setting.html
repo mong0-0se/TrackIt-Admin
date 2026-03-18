@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Settings — TrackIt</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <style>
+    :root {
+      --bg:#F7F8FA; --surface:#FFFFFF; --surface-alt:#F0F2F5;
+      --navy:#0F1F3D; --navy-light:#1A3460;
+      --accent:#2563EB; --accent-light:#EEF4FF;
+      --text-primary:#0F1F3D; --text-second:#64748B; --text-muted:#94A3B8;
+      --divider:#E2E8F0; --radius:12px; --radius-sm:8px;
+    }
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+    html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text-primary);overflow-x:hidden;}
+    .page{display:flex;flex-direction:column;min-height:100vh;}
+    .topbar{background:var(--surface);border-bottom:1px solid var(--divider);padding:0 28px;height:58px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-shadow:0 1px 3px rgba(15,31,61,0.05);}
+    .topbar-left h1{font-size:16px;font-weight:800;letter-spacing:-0.3px;}
+    .topbar-left p{font-size:11.5px;color:var(--text-muted);margin-top:1px;}
+    .time-chip{display:flex;align-items:center;gap:7px;background:var(--surface-alt);border:1px solid var(--divider);border-radius:7px;padding:7px 13px;font-size:12.5px;font-weight:600;color:var(--text-second);}
+    .time-chip i{color:var(--accent);font-size:11px;}
+    .content{flex:1;padding:28px;display:grid;grid-template-columns:220px 1fr;gap:24px;align-items:start;}
+    .settings-nav{background:var(--surface);border:1px solid var(--divider);border-radius:var(--radius);overflow:hidden;position:sticky;top:28px;height:fit-content;}
+    .nav-label{font-size:9.5px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;padding:14px 16px 8px;}
+    .nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:13px;font-weight:600;color:var(--text-second);cursor:pointer;transition:all 0.15s;border-left:3px solid transparent;text-decoration:none;}
+    .nav-item:hover{background:var(--surface-alt);color:var(--text-primary);}
+    .nav-item.active{background:var(--accent-light);color:var(--accent);border-left-color:var(--accent);font-weight:700;}
+    .nav-item i{width:16px;text-align:center;font-size:13px;}
+    .nav-divider{height:1px;background:var(--divider);margin:6px 0;}
+    .iframe-container{border:1px solid var(--divider);border-radius:var(--radius);overflow:hidden;background:var(--surface);box-shadow:0 1px 4px rgba(15,31,61,0.04);}
+    iframe{border:none;width:100%;display:block;min-height:600px;}
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--navy);color:#fff;padding:11px 18px;border-radius:10px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:9px;box-shadow:0 8px 24px rgba(15,31,61,0.28);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);z-index:99999;white-space:nowrap;}
+    .toast.show{transform:translateX(-50%) translateY(0);}
+    .toast.success i{color:#4ADE80;}
+    .toast.error i{color:#F87171;}
+    .auth-overlay{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999999;}
+    .auth-overlay.hidden{display:none;}
+    .auth-spinner{width:40px;height:40px;border:4px solid var(--divider);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    @media(max-width:900px){.content{grid-template-columns:1fr;gap:16px;}.settings-nav{position:static;}}
+  </style>
+</head>
+<body>
+
+<div class="auth-overlay" id="authOverlay"><div class="auth-spinner"></div></div>
+
+<div class="page" id="pageContent" style="display:none;">
+  <div class="topbar">
+    <div class="topbar-left">
+      <h1>Settings</h1>
+      <p>Manage your profile, download records, and system info</p>
+    </div>
+    <div class="time-chip"><i class="fa fa-clock"></i><span id="currentTime">—</span></div>
+  </div>
+  <div class="content">
+    <nav class="settings-nav">
+      <div class="nav-label">Settings</div>
+      <a class="nav-item active" onclick="loadModule('profile',this)"><i class="fa fa-user-circle"></i> My Profile</a>
+      <a class="nav-item" onclick="loadModule('record',this)"><i class="fa fa-download"></i> Record Download</a>
+      <div class="nav-divider"></div>
+      <a class="nav-item" onclick="loadModule('about',this)"><i class="fa fa-circle-info"></i> About</a>
+    </nav>
+    <div class="iframe-container">
+      <iframe id="moduleFrame" src="about:blank"></iframe>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><i class="fa fa-circle-check"></i><span id="toastMsg">Done!</span></div>
+
+<script>
+  // ── Must match login.html exactly ──
+  const SUPABASE_URL      = 'https://tvbzpdjsyuxiguqrpfag.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2YnpwZGpzeXV4aWd1cXJwZmFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NzgxMDgsImV4cCI6MjA4ODM1NDEwOH0.JS04q7iiTPVnGIKS9kCa6sFzl0Cr6ot2rx-jTs9m6dQ';
+  const SESSION_KEY       = 'ca_session'; // same as login.html
+
+  function tick() {
+    document.getElementById('currentTime').textContent = new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  }
+  tick(); setInterval(tick, 1000);
+
+  function getSession() {
+    try {
+      const s = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
+      if (s && new Date(s.expires_at) > new Date()) return s;
+    } catch(e) {}
+    return null;
+  }
+
+  async function verifyAdmin(session) {
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/client_admin?id=eq.${session.id}&status=eq.active&select=id,name,email,status,client_id&limit=1`,
+        { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY } }
+      );
+      if (!res.ok) return false;
+      const data = await res.json();
+      return data && data.length > 0;
+    } catch(e) { return false; }
+  }
+
+  function loadModule(moduleName, navItem) {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    navItem.classList.add('active');
+    const frame = document.getElementById('moduleFrame');
+    frame.style.height = '600px';
+    frame.src = `${moduleName}.html`;
+  }
+
+  window.addEventListener('message', function(e) {
+    if (e.data.type === 'toast') showToast(e.data.message, e.data.messageType || 'success');
+    if (e.data.type === 'resizeFrame') document.getElementById('moduleFrame').style.height = e.data.height + 'px';
+  });
+
+  function showToast(msg, type='success') {
+    const t = document.getElementById('toast');
+    document.getElementById('toastMsg').textContent = msg;
+    t.className = `toast ${type}`;
+    t.querySelector('i').className = type === 'success' ? 'fa fa-circle-check' : 'fa fa-circle-exclamation';
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  async function init() {
+    const session = getSession();
+    if (!session) { window.location.href = 'login.html'; return; }
+    const valid = await verifyAdmin(session);
+    if (!valid) { sessionStorage.removeItem(SESSION_KEY); window.location.href = 'login.html'; return; }
+    document.getElementById('authOverlay').classList.add('hidden');
+    document.getElementById('pageContent').style.display = 'flex';
+    loadModule('profile', document.querySelector('.nav-item.active'));
+  }
+
+  init();
+</script>
+</body>
+</html>

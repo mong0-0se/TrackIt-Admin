@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Route Viewer — TrackIt</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{
+      --bg:#F7F8FA;--surface:#FFFFFF;--surface-alt:#F0F2F5;
+      --navy:#0F1F3D;--navy-light:#1A3460;
+      --accent:#2563EB;--accent-light:#EEF4FF;
+      --success:#16A34A;--success-light:#ECFDF5;
+      --danger:#DC2626;--danger-light:#FEF2F2;
+      --warn:#D97706;--warn-light:#FFFBEB;
+      --archive:#7C3AED;--archive-light:#F5F3FF;
+      --text-primary:#0F1F3D;--text-second:#64748B;--text-muted:#94A3B8;
+      --divider:#E2E8F0;--radius:12px;--radius-sm:8px;
+    }
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+    html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text-primary);overflow:hidden;}
+    .page{display:flex;flex-direction:column;height:100vh;}
+
+    /* TOPBAR */
+    .topbar{background:var(--surface);border-bottom:1px solid var(--divider);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-shadow:0 1px 3px rgba(15,31,61,0.05);}
+    .topbar-left h1{font-size:15px;font-weight:800;letter-spacing:-0.3px;}
+    .topbar-left p{font-size:11px;color:var(--text-muted);margin-top:1px;}
+    .topbar-right{display:flex;align-items:center;gap:8px;}
+    .time-chip{display:flex;align-items:center;gap:6px;background:var(--surface-alt);border:1px solid var(--divider);border-radius:7px;padding:6px 11px;font-size:12px;font-weight:600;color:var(--text-second);}
+    .time-chip i{color:var(--accent);font-size:10px;}
+    .chip-btn{display:flex;align-items:center;gap:6px;background:var(--surface-alt);border:1px solid var(--divider);border-radius:7px;padding:6px 11px;font-size:11.5px;font-weight:600;color:var(--text-second);cursor:pointer;transition:all 0.2s;}
+    .chip-btn:hover{border-color:var(--accent);color:var(--accent);}
+    .readonly-badge{display:flex;align-items:center;gap:5px;background:var(--surface-alt);border:1px solid var(--divider);border-radius:7px;padding:6px 11px;font-size:11px;font-weight:700;color:var(--text-muted);}
+    .readonly-badge i{font-size:10px;}
+
+    /* LAYOUT */
+    .main-layout{flex:1;display:grid;grid-template-columns:1fr 360px;overflow:hidden;}
+
+    /* MAP */
+    .map-area{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--divider);}
+    #map{flex:1;width:100%;min-height:0;}
+
+    /* SIDE PANEL */
+    .side-panel{display:flex;flex-direction:column;background:var(--bg);overflow:hidden;height:100%;padding:12px;gap:12px;}
+
+    /* CARDS */
+    .card{background:var(--surface);border:1px solid var(--divider);border-radius:var(--radius);overflow:hidden;box-shadow:0 1px 4px rgba(15,31,61,0.04);}
+    .card-head{padding:11px 14px;border-bottom:1px solid var(--divider);}
+    .card-head-row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+    .card-head h2{font-size:13px;font-weight:800;color:var(--text-primary);letter-spacing:-0.2px;}
+
+    /* TABS */
+    .tab-bar{display:flex;border-bottom:1px solid var(--divider);padding:0 14px;background:var(--surface);flex-shrink:0;}
+    .tab-btn{padding:9px 12px;font-size:11.5px;font-weight:700;color:var(--text-muted);border:none;background:transparent;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.15s;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:5px;}
+    .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+    .tab-btn .tab-count{font-size:9.5px;font-weight:700;background:var(--surface-alt);color:var(--text-muted);padding:1px 5px;border-radius:8px;}
+    .tab-btn.active .tab-count{background:var(--accent-light);color:var(--accent);}
+    .tab-pane{display:none;}
+    .tab-pane.active{display:block;}
+    .tab-body{flex:1;overflow-y:auto;}
+    .tab-body::-webkit-scrollbar{width:4px;}
+    .tab-body::-webkit-scrollbar-thumb{background:var(--divider);border-radius:2px;}
+
+    /* ROUTES CARD */
+    .routes-card{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+    .routes-card .card-head{flex-shrink:0;}
+
+    /* ROUTE LIST ITEMS */
+    .route-list{display:flex;flex-direction:column;}
+    .route-item{padding:10px 12px;border-bottom:1px solid var(--divider);transition:background 0.15s;cursor:pointer;}
+    .route-item:last-child{border-bottom:none;}
+    .route-item:hover{background:#F8FAFF;}
+    .route-item.focused{background:var(--accent-light);border-left:3px solid var(--accent);}
+    .route-item-top{display:flex;align-items:center;gap:8px;}
+    .route-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+    .route-item-name{font-size:12.5px;font-weight:700;color:var(--text-primary);flex:1;}
+    .route-item-meta{font-size:10.5px;color:var(--text-muted);margin-top:2px;margin-left:17px;}
+    .status-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;font-size:9.5px;font-weight:700;}
+    .status-badge::before{content:'';width:4px;height:4px;border-radius:50%;background:currentColor;}
+    .badge-active{background:var(--success-light);color:var(--success);}
+    .badge-inactive{background:var(--surface-alt);color:var(--text-muted);border:1px solid var(--divider);}
+
+    /* DETAIL CARD */
+    .detail-card{flex-shrink:0;display:none;}
+    .detail-card.show{display:block;}
+    .detail-card .card-body{padding:12px 14px;}
+    .detail-name{font-size:14px;font-weight:800;color:var(--text-primary);margin-bottom:6px;}
+    .detail-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:8px;}
+    .stat{background:var(--surface-alt);border:1px solid var(--divider);border-radius:var(--radius-sm);padding:7px 9px;}
+    .stat-label{font-size:9px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;}
+    .stat-value{font-size:13px;font-weight:800;color:var(--text-primary);line-height:1.3;margin-top:1px;}
+    .detail-meta{font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+    .detail-meta span{display:flex;align-items:center;gap:4px;}
+    .detail-meta i{font-size:9px;}
+    .close-detail{width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:var(--surface-alt);border:1px solid var(--divider);border-radius:5px;cursor:pointer;color:var(--text-muted);font-size:10px;transition:all 0.15s;border:none;}
+    .close-detail:hover{background:var(--danger-light);color:var(--danger);}
+
+    /* EMPTY STATE */
+    .empty-state{padding:28px 14px;text-align:center;}
+    .empty-icon{width:44px;height:44px;background:var(--surface-alt);border:1px solid var(--divider);border-radius:10px;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;}
+    .empty-icon i{font-size:18px;color:var(--text-muted);}
+    .empty-state h3{font-size:12.5px;font-weight:800;margin-bottom:3px;}
+    .empty-state p{font-size:11px;color:var(--text-muted);}
+
+    /* HINT BOX */
+    .hint-box{display:flex;align-items:flex-start;gap:8px;background:var(--accent-light);border:1px solid rgba(37,99,235,0.15);border-radius:var(--radius-sm);padding:9px 11px;font-size:11.5px;color:var(--accent);font-weight:500;line-height:1.5;flex-shrink:0;}
+    .hint-box i{font-size:12px;flex-shrink:0;margin-top:1px;}
+
+    /* TOAST */
+    .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--navy);color:#fff;padding:10px 16px;border-radius:9px;font-size:12.5px;font-weight:500;display:flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(15,31,61,0.28);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);z-index:99999;white-space:nowrap;}
+    .toast.show{transform:translateX(-50%) translateY(0);}
+    .toast.success i{color:#4ADE80;}
+    .toast.error i{color:#F87171;}
+
+    @media(max-width:900px){
+      .main-layout{grid-template-columns:1fr;grid-template-rows:1fr auto;}
+      .map-area{min-height:300px;}
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <h1>Route Viewer</h1>
+      <p>View and explore routes on the map</p>
+    </div>
+    <div class="topbar-right">
+      <div class="chip-btn" onclick="loadRoutes()"><i class="fa fa-rotate-right"></i> Refresh</div>
+      <div class="time-chip"><i class="fa fa-clock"></i><span id="currentTime">—</span></div>
+    </div>
+  </div>
+
+  <div class="main-layout">
+
+    <!-- MAP -->
+    <div class="map-area">
+      <div id="map"></div>
+    </div>
+
+    <!-- SIDE PANEL -->
+    <div class="side-panel">
+
+      <!-- ROUTE DETAIL (shown on click) -->
+      <div class="card detail-card" id="detailCard">
+        <div class="card-body">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px;">
+            <div class="detail-name" id="detailName">—</div>
+            <button class="close-detail" onclick="closeDetail()" title="Close"><i class="fa fa-xmark"></i></button>
+          </div>
+          <div class="detail-stats">
+            <div class="stat"><div class="stat-label">Distance</div><div class="stat-value" id="detailDist">—</div></div>
+            <div class="stat"><div class="stat-label">Points</div><div class="stat-value" id="detailPts">—</div></div>
+            <div class="stat"><div class="stat-label">Status</div><div class="stat-value" id="detailStatus">—</div></div>
+          </div>
+          <div class="detail-meta">
+            <span><i class="fa fa-location-dot"></i> <span id="detailStart">—</span></span>
+            <span><i class="fa fa-flag-checkered"></i> <span id="detailEnd">—</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- HINT -->
+      <div class="hint-box" style="flex-shrink:0;">
+        <i class="fa fa-hand-pointer"></i>
+        <span>Click any route in the list or on the map to view its details.</span>
+      </div>
+
+      <!-- ROUTES LIST -->
+      <div class="card routes-card">
+        <div class="card-head">
+          <div class="card-head-row">
+            <h2>Routes <span style="font-weight:400;color:var(--text-muted);" id="routeCount">(0)</span></h2>
+          </div>
+        </div>
+        <div class="tab-bar">
+          <button class="tab-btn active" onclick="switchTab('active',this)">
+            <i class="fa fa-circle-check" style="font-size:9px;"></i> Active
+            <span class="tab-count" id="tabCountActive">0</span>
+          </button>
+          <button class="tab-btn" onclick="switchTab('inactive',this)">
+            <i class="fa fa-circle-xmark" style="font-size:9px;"></i> Inactive
+            <span class="tab-count" id="tabCountInactive">0</span>
+          </button>
+        </div>
+        <div class="tab-body">
+          <div class="tab-pane active" id="pane-active"><div class="route-list" id="list-active"></div></div>
+          <div class="tab-pane" id="pane-inactive"><div class="route-list" id="list-inactive"></div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><i class="fa fa-circle-check"></i><span id="toastMsg">Done!</span></div>
+
+<script>
+// ── SUPABASE ──────────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://tvbzpdjsyuxiguqrpfag.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2YnpwZGpzeXV4aWd1cXJwZmFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NzgxMDgsImV4cCI6MjA4ODM1NDEwOH0.JS04q7iiTPVnGIKS9kCa6sFzl0Cr6ot2rx-jTs9m6dQ';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── CLOCK ─────────────────────────────────────────────────────────────────
+function tick(){document.getElementById('currentTime').textContent=new Date().toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});}
+tick(); setInterval(tick,1000);
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let routes = [], routePolylines = {}, routeStartMarkers = {};
+let focusedId = null;
+let mapInstance;
+
+// ── MAP INIT ──────────────────────────────────────────────────────────────
+mapInstance = L.map('map').setView([14.5995, 120.9842], 12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(mapInstance);
+
+// ── LOAD ROUTES ───────────────────────────────────────────────────────────
+async function loadRoutes(){
+  try{
+    const {data,error} = await sb.from('routes').select('*').order('created_at',{ascending:false});
+    if(error) throw error;
+    routes = data || [];
+
+    Object.values(routePolylines).forEach(pl=>mapInstance.removeLayer(pl));
+    Object.values(routeStartMarkers).forEach(m=>mapInstance.removeLayer(m));
+    routePolylines = {}; routeStartMarkers = {};
+
+    routes.forEach(r=>{
+      // Skip archived routes
+      if(r.status === 'archived') return;
+      if(!r.coordinates?.length) return;
+      
+      const isInactive = r.status==='inactive';
+      const opacity = isInactive?0.4:0.88;
+      const pl = L.polyline(r.coordinates,{color:r.color||'#2563EB',weight:4,opacity,lineCap:'round',lineJoin:'round'}).addTo(mapInstance);
+      pl.on('click', ()=>focusRoute(r.id));
+      pl.bindTooltip(`<b>${r.route_name||'Route'}</b> · ${r.distance_km||'—'} km`, {sticky:true});
+      const icon = L.divIcon({html:`<div style="width:9px;height:9px;background:${r.color};border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.3);"></div>`,className:'',iconSize:[9,9],iconAnchor:[4.5,4.5]});
+      const sm = L.marker(r.coordinates[0],{icon}).addTo(mapInstance);
+      sm.on('click', ()=>focusRoute(r.id));
+      routePolylines[r.id] = pl;
+      routeStartMarkers[r.id] = sm;
+    });
+
+    // Auto-fit to all routes on initial load
+    if(routes.length > 0 && Object.keys(routePolylines).length > 0){
+      const allBounds = [];
+      Object.values(routePolylines).forEach(pl => {
+        pl.getLatLngs().forEach(latlng => allBounds.push(latlng));
+      });
+      if(allBounds.length > 0){
+        mapInstance.fitBounds(L.latLngBounds(allBounds), {padding:[50,50], maxZoom:15});
+      }
+    }
+
+    renderRoutes();
+    closeDetail();
+  }catch(e){ showToast('Error loading: '+e.message,'error'); }
+}
+
+// ── RENDER LIST ───────────────────────────────────────────────────────────
+function renderRoutes(){
+  const active   = routes.filter(r=>r.status==='active'||(!r.status&&r.is_active!==false));
+  const inactive = routes.filter(r=>r.status==='inactive'||(!r.status&&r.is_active===false));
+
+  document.getElementById('routeCount').textContent=`(${routes.length})`;
+  document.getElementById('tabCountActive').textContent=active.length;
+  document.getElementById('tabCountInactive').textContent=inactive.length;
+
+  renderList('list-active',   active,   'active');
+  renderList('list-inactive', inactive, 'inactive');
+}
+
+function renderList(listId, items, tab){
+  const el = document.getElementById(listId);
+  if(!items.length){
+    const labels={active:'No active routes',inactive:'No inactive routes'};
+    const subs={active:'No active routes to display.',inactive:'No inactive routes.'};
+    el.innerHTML=`<div class="empty-state"><div class="empty-icon"><i class="fa fa-map"></i></div><h3>${labels[tab]}</h3><p>${subs[tab]}</p></div>`;
+    return;
+  }
+  el.innerHTML = items.map(r=>`
+    <div class="route-item ${focusedId===r.id?'focused':''}" onclick="focusRoute('${r.id}')" id="item-${r.id}">
+      <div class="route-item-top">
+        <div class="route-dot" style="background:${r.color||'#2563EB'};"></div>
+        <div class="route-item-name">${r.route_name||'Unnamed Route'}</div>
+        <span class="status-badge badge-${tab}">${tab.charAt(0).toUpperCase()+tab.slice(1)}</span>
+      </div>
+      <div class="route-item-meta">${r.distance_km||'—'} km · ${r.coordinates?.length||0} pts</div>
+    </div>`).join('');
+}
+
+// ── FOCUS / DETAIL ────────────────────────────────────────────────────────
+function focusRoute(id){
+  const route = routes.find(r=>r.id===id);
+  if(!route) return;
+
+  // Reset previous highlight
+  if(focusedId && routePolylines[focusedId]){
+    const prev = routes.find(r=>r.id===focusedId);
+    const prevOpacity = prev?.status==='inactive'?0.4:0.88;
+    routePolylines[focusedId].setStyle({opacity:prevOpacity, weight:4});
+  }
+
+  focusedId = id;
+
+  // Highlight focused route
+  if(routePolylines[id]){
+    routePolylines[id].setStyle({opacity:1, weight:6});
+    mapInstance.fitBounds(routePolylines[id].getBounds(),{padding:[50,50]});
+  }
+
+  // Show detail card
+  const card = document.getElementById('detailCard');
+  card.classList.add('show');
+  document.getElementById('detailName').textContent = route.route_name || 'Unnamed Route';
+  document.getElementById('detailDist').textContent = route.distance_km ? route.distance_km+' km' : '—';
+  document.getElementById('detailPts').textContent  = route.coordinates?.length || '—';
+  document.getElementById('detailStatus').textContent = route.status ? route.status.charAt(0).toUpperCase()+route.status.slice(1) : 'Active';
+  document.getElementById('detailStart').textContent = route.origin || '—';
+  document.getElementById('detailEnd').textContent   = route.destination || '—';
+
+  // Highlight list item
+  document.querySelectorAll('.route-item').forEach(el=>el.classList.remove('focused'));
+  const item = document.getElementById(`item-${id}`);
+  if(item){ item.classList.add('focused'); item.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function closeDetail(){
+  if(focusedId && routePolylines[focusedId]){
+    const prev = routes.find(r=>r.id===focusedId);
+    const prevOpacity = prev?.status==='inactive'?0.4:0.88;
+    routePolylines[focusedId].setStyle({opacity:prevOpacity, weight:4});
+  }
+  focusedId = null;
+  document.getElementById('detailCard').classList.remove('show');
+  document.querySelectorAll('.route-item').forEach(el=>el.classList.remove('focused'));
+}
+
+// ── TAB SWITCH ────────────────────────────────────────────────────────────
+function switchTab(tab, btn){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(`pane-${tab}`).classList.add('active');
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────
+function showToast(msg,type='success'){
+  const t=document.getElementById('toast');
+  document.getElementById('toastMsg').textContent=msg;
+  t.className=`toast ${type}`;
+  t.querySelector('i').className={success:'fa fa-circle-check',error:'fa fa-circle-exclamation'}[type]||'fa fa-circle-check';
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3200);
+}
+
+// ── REALTIME ──────────────────────────────────────────────────────────────
+sb.channel('routes_viewer')
+  .on('postgres_changes',{event:'*',schema:'public',table:'routes'},()=>loadRoutes())
+  .subscribe();
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+loadRoutes();
+</script>
+</body>
+</html>

@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Notifications — TrackIt</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg:           #f4f6f9;
+      --surface:      #ffffff;
+      --surface-alt:  #f0f3f8;
+      --surface-3:    #e8ecf2;
+      --navy:         #0a1628;
+      --navy-mid:     #152342;
+      --accent:       #1d4ed8;
+      --accent-2:     #3b82f6;
+      --accent-light: #eff6ff;
+      --success:      #059669;
+      --success-light:#ecfdf5;
+      --danger:       #dc2626;
+      --danger-light: #fef2f2;
+      --warning:      #d97706;
+      --warning-light:#fef3c7;
+      --info:         #0891b2;
+      --info-light:   #ecfeff;
+      --text-1:       #0a1628;
+      --text-2:       #374151;
+      --text-3:       #6b7280;
+      --text-4:       #9ca3af;
+      --divider:      #e5e9f0;
+      --radius:       12px;
+      --shadow-sm:    0 1px 3px rgba(10,22,40,0.06), 0 1px 2px rgba(10,22,40,0.04);
+      --shadow-md:    0 4px 16px rgba(10,22,40,0.08);
+      --font:         'Sora', sans-serif;
+      --mono:         'JetBrains Mono', monospace;
+    }
+
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    html, body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text-1);
+      min-height: 100%;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      height: 58px; padding: 0 22px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--divider);
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px;
+      box-shadow: var(--shadow-sm);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .topbar-left { display:flex; align-items:center; gap:14px; }
+    .brand { display:flex; align-items:center; gap:10px; text-decoration:none; }
+    .brand-icon {
+      width:34px; height:34px; background:var(--navy);
+      border-radius:9px; display:flex; align-items:center; justify-content:center;
+      box-shadow: 0 2px 8px rgba(10,22,40,0.2);
+    }
+    .brand-icon i { color:#fff; font-size:14px; }
+    .brand-name { font-size:15px; font-weight:800; letter-spacing:-0.5px; color:var(--navy); }
+    .sep { width:1px; height:22px; background:var(--divider); }
+    .page-title { font-size:13px; font-weight:700; color:var(--text-3); }
+
+    .topbar-right { display:flex; align-items:center; gap:8px; }
+    .time-pill {
+      font-family:var(--mono); font-size:11px; font-weight:600;
+      color:var(--text-3); background:var(--surface-alt);
+      border:1px solid var(--divider); border-radius:7px; padding:5px 11px;
+    }
+    .btn {
+      display:inline-flex; align-items:center; gap:6px;
+      padding:7px 14px; border-radius:8px;
+      font-size:12px; font-weight:700; font-family:var(--font);
+      cursor:pointer; border:1px solid transparent;
+      transition:all 0.15s; white-space:nowrap;
+    }
+    .btn-primary {
+      background:var(--navy); color:#fff;
+      box-shadow:0 2px 8px rgba(10,22,40,0.2);
+    }
+    .btn-primary:hover { background:var(--navy-mid); transform:translateY(-1px); }
+    .btn-primary:active { transform:translateY(0); }
+    .btn-ghost {
+      background:var(--surface-alt); border-color:var(--divider); color:var(--text-2);
+      box-shadow:var(--shadow-sm); border:1px solid var(--divider);
+    }
+    .btn-ghost:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-light); }
+    .btn-ghost:disabled { opacity:0.5; cursor:not-allowed; }
+    .btn i.spin { animation:spin 0.7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* ── PAGE ── */
+    .page { padding:24px 24px 48px; max-width:820px; margin:0 auto; animation:fadeUp 0.4s ease both; }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ── PAGE HEADER ── */
+    .page-header {
+      display:flex; align-items:flex-start; justify-content:space-between;
+      margin-bottom:20px; gap:12px; flex-wrap:wrap;
+    }
+    .page-header h1 { font-size:18px; font-weight:800; letter-spacing:-0.4px; color:var(--navy); }
+    .page-header p  { font-size:12px; color:var(--text-3); margin-top:3px; font-weight:500; }
+    .header-actions { display:flex; gap:8px; align-items:center; }
+
+    /* ── FILTER TABS ── */
+    .filter-bar { display:flex; align-items:center; gap:6px; margin-bottom:18px; flex-wrap:wrap; }
+    .ftab {
+      display:inline-flex; align-items:center; gap:6px;
+      padding:6px 13px; border-radius:8px;
+      font-size:12px; font-weight:700; font-family:var(--font);
+      cursor:pointer; border:1px solid var(--divider);
+      background:var(--surface); color:var(--text-3);
+      transition:all 0.15s; box-shadow:var(--shadow-sm);
+    }
+    .ftab:hover { background:var(--surface-alt); color:var(--text-1); border-color:var(--accent); }
+    .ftab.active { background:var(--navy); color:#fff; border-color:var(--navy); }
+    .ftab-count {
+      font-size:9.5px; font-weight:800; padding:1px 6px;
+      border-radius:20px; font-family:var(--mono);
+      background:rgba(255,255,255,0.2);
+    }
+    .ftab:not(.active) .ftab-count { background:var(--surface-3); color:var(--text-3); }
+
+    /* ── SECTION LABEL ── */
+    .section-label {
+      font-size:10px; font-weight:800; color:var(--text-3);
+      text-transform:uppercase; letter-spacing:0.9px;
+      margin-bottom:8px; margin-top:6px; padding:0 2px;
+      font-family:var(--mono);
+    }
+
+    /* ── NOTIFICATION CARD ── */
+    .notif-card {
+      background:var(--surface); border:1px solid var(--divider);
+      border-radius:var(--radius); padding:14px 16px; margin-bottom:8px;
+      display:flex; align-items:flex-start; gap:12px;
+      cursor:pointer; transition:all 0.15s; position:relative;
+      box-shadow:var(--shadow-sm);
+    }
+    .notif-card:hover { box-shadow:var(--shadow-md); transform:translateY(-1px); }
+    .notif-card.unread { border-left:3px solid var(--accent); background:#f8faff; }
+    .notif-card.unread.type-success { border-left-color:var(--success); background:#f6fefb; }
+
+    .notif-icon {
+      width:36px; height:36px; border-radius:9px;
+      display:flex; align-items:center; justify-content:center;
+      flex-shrink:0; margin-top:1px;
+    }
+    .notif-icon i { font-size:14px; }
+    .ni-success { background:var(--success-light); } .ni-success i { color:var(--success); }
+    .ni-accent  { background:var(--accent-light);  } .ni-accent  i { color:var(--accent);  }
+    .ni-purple  { background:#f5f3ff;               } .ni-purple  i { color:#7c3aed;        }
+
+    .notif-body { flex:1; min-width:0; }
+    .notif-title { font-size:13px; font-weight:700; color:var(--text-1); margin-bottom:3px; }
+    .notif-card.unread .notif-title { font-weight:800; }
+    .notif-desc { font-size:12px; color:var(--text-2); line-height:1.55; font-weight:500; }
+    .notif-meta { display:flex; align-items:center; gap:9px; margin-top:7px; }
+    .notif-time {
+      font-size:10.5px; color:var(--text-4); font-weight:600;
+      font-family:var(--mono); display:flex; align-items:center; gap:4px;
+    }
+    .notif-time i { font-size:9px; }
+    .notif-tag {
+      font-size:9.5px; font-weight:800; padding:2px 7px;
+      border-radius:5px; text-transform:uppercase; letter-spacing:0.4px;
+    }
+    .tag-success { background:var(--success-light); color:var(--success); }
+    .tag-info    { background:var(--info-light);    color:var(--info);    }
+    .tag-system  { background:#f5f3ff;              color:#7c3aed;        }
+    .tag-driver  { background:var(--accent-light);  color:var(--accent);  }
+
+    .unread-dot {
+      width:8px; height:8px; border-radius:50%;
+      background:var(--accent); flex-shrink:0; margin-top:5px;
+    }
+    .notif-card.unread.type-success .unread-dot { background:var(--success); }
+    .notif-card.read .unread-dot { display:none; }
+
+    /* ── SKELETON ── */
+    .skel-card {
+      background:var(--surface); border:1px solid var(--divider);
+      border-radius:var(--radius); padding:16px; margin-bottom:8px;
+      display:flex; gap:12px; box-shadow:var(--shadow-sm);
+    }
+    .skel {
+      background:linear-gradient(90deg,var(--surface-alt) 25%,var(--surface-3) 50%,var(--surface-alt) 75%);
+      background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:6px;
+    }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    /* ── EMPTY ── */
+    .empty-state { text-align:center; padding:48px 20px; color:var(--text-4); }
+    .empty-state i { font-size:32px; margin-bottom:12px; display:block; opacity:0.35; }
+    .empty-state p    { font-size:13px; font-weight:700; color:var(--text-2); margin-bottom:4px; }
+    .empty-state span { font-size:11.5px; color:var(--text-3); }
+
+    @media(max-width:600px) {
+      .page { padding:16px 14px 40px; }
+      .header-actions { width:100%; justify-content:flex-end; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <a class="brand" href="#">
+        <div class="brand-icon"><i class="fa fa-location-dot"></i></div>
+        <span class="brand-name">TrackIt</span>
+      </a>
+      <div class="sep"></div>
+      <span class="page-title">Notifications</span>
+    </div>
+    <div class="topbar-right">
+      <div class="time-pill" id="timePill">—</div>
+      <button class="btn btn-ghost" id="markAllBtn" onclick="markAllRead()">
+        <i class="fa fa-check-double"></i> Mark all read
+      </button>
+      <button class="btn btn-primary" id="refreshBtn" onclick="loadNotifications()">
+        <i class="fa fa-rotate-right" id="refreshIcon"></i> Refresh
+      </button>
+    </div>
+  </div>
+
+  <div class="page">
+
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+      <div>
+        <h1>Notifications</h1>
+        <p id="unreadLabel">Loading…</p>
+      </div>
+    </div>
+
+    <!-- FILTER TABS -->
+    <div class="filter-bar">
+      <button class="ftab active" onclick="setFilter('all',this)">
+        All <span class="ftab-count" id="count-all">—</span>
+      </button>
+      <button class="ftab" onclick="setFilter('unread',this)">
+        Unread <span class="ftab-count" id="count-unread">—</span>
+      </button>
+      <button class="ftab" onclick="setFilter('success',this)">
+        <i class="fa fa-circle-check" style="color:var(--success);font-size:10px;"></i>
+        Updates <span class="ftab-count" id="count-success">—</span>
+      </button>
+    </div>
+
+    <!-- NOTIFICATION LIST -->
+    <div id="notifContainer">
+      <div class="skel-card">
+        <div class="skel" style="width:36px;height:36px;border-radius:9px;flex-shrink:0;"></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:7px;">
+          <div class="skel" style="width:55%;height:13px;"></div>
+          <div class="skel" style="width:80%;height:12px;"></div>
+          <div class="skel" style="width:35%;height:10px;"></div>
+        </div>
+      </div>
+      <div class="skel-card">
+        <div class="skel" style="width:36px;height:36px;border-radius:9px;flex-shrink:0;"></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:7px;">
+          <div class="skel" style="width:45%;height:13px;"></div>
+          <div class="skel" style="width:70%;height:12px;"></div>
+          <div class="skel" style="width:30%;height:10px;"></div>
+        </div>
+      </div>
+      <div class="skel-card">
+        <div class="skel" style="width:36px;height:36px;border-radius:9px;flex-shrink:0;"></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:7px;">
+          <div class="skel" style="width:60%;height:13px;"></div>
+          <div class="skel" style="width:75%;height:12px;"></div>
+          <div class="skel" style="width:40%;height:10px;"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+  // ── CONFIG — System Project ──────────────────────────────────────────────
+  const SUPABASE_URL = 'https://vgahmqmyangtewlfptrj.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZnYWhtcW15YW5ndGV3bGZwdHJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2MjY5MDMsImV4cCI6MjA4ODIwMjkwM30.hK1SlUucpmQTwA9QVV5o00kexhbeTYF1MlAtH_c5fkE';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let notifications = [];
+  let currentFilter = 'all';
+  const STORAGE_KEY = 'trackit_read_notifs';
+
+  // ── CLOCK ────────────────────────────────────────────────────────────────
+  function updateClock() {
+    document.getElementById('timePill').textContent =
+      new Date().toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  }
+  updateClock(); setInterval(updateClock, 1000);
+
+  // ── READ STATE (session) ─────────────────────────────────────────────────
+  function getReadIds() {
+    try { return new Set(JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '[]')); }
+    catch { return new Set(); }
+  }
+  function saveReadIds(set) {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify([...set]));
+  }
+
+  // ── HELPERS ──────────────────────────────────────────────────────────────
+  function timeAgo(ts) {
+    if (!ts) return '—';
+    const s = Math.floor((Date.now() - new Date(ts)) / 1000);
+    if (s < 60)     return 'Just now';
+    if (s < 3600)   return Math.floor(s/60) + 'm ago';
+    if (s < 86400)  return Math.floor(s/3600) + 'h ago';
+    if (s < 604800) return Math.floor(s/86400) + 'd ago';
+    return new Date(ts).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+  }
+
+  function isToday(ts) {
+    if (!ts) return false;
+    const d = new Date(ts), now = new Date();
+    return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }
+
+  // ── LOAD ─────────────────────────────────────────────────────────────────
+  async function loadNotifications() {
+    const btn  = document.getElementById('refreshBtn');
+    const icon = document.getElementById('refreshIcon');
+    btn.disabled = true;
+    icon.classList.add('spin');
+
+    try {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+
+      const [
+        { data: vehicles },
+        { data: routes   },
+      ] = await Promise.all([
+        sb.from('vehicles').select('id,plate_number,status,created_at').gte('created_at', sevenDaysAgo),
+        sb.from('routes').select('id,name,is_active,created_at').gte('created_at', sevenDaysAgo),
+      ]);
+
+      const readIds = getReadIds();
+      const items   = [];
+      let   autoId  = 1;
+
+      function push(n) {
+        const id   = 'n' + autoId++;
+        const read = readIds.has(id);
+        items.push({ id, read, ...n });
+      }
+
+      // Vehicles registered in last 7 days
+      (vehicles || []).forEach(v => {
+        push({
+          type: 'success', icon: 'fa-bus', iconClass: 'ni-accent',
+          title: 'New Vehicle Registered',
+          desc:  `${v.plate_number} has been added to the fleet registry.`,
+          ts: v.created_at,
+          tag: 'Vehicle', tagClass: 'tag-info',
+        });
+      });
+
+      // Routes created in last 7 days
+      (routes || []).filter(r => r.is_active).forEach(r => {
+        push({
+          type: 'success', icon: 'fa-route', iconClass: 'ni-success',
+          title: 'Route Created',
+          desc:  `Route "${r.name}" has been created and is now active.`,
+          ts: r.created_at,
+          tag: 'Route', tagClass: 'tag-success',
+        });
+      });
+
+      // Sort newest first
+      items.sort((a, b) => new Date(b.ts) - new Date(a.ts));
+      notifications = items;
+      render();
+
+    } catch(err) {
+      document.getElementById('notifContainer').innerHTML = `
+        <div class="empty-state">
+          <i class="fa fa-circle-exclamation" style="color:var(--danger);opacity:0.7;"></i>
+          <p>Failed to load notifications</p>
+          <span>${err.message}</span>
+        </div>`;
+    } finally {
+      btn.disabled = false;
+      icon.classList.remove('spin');
+    }
+  }
+
+  // ── RENDER ────────────────────────────────────────────────────────────────
+  function render() {
+    const container = document.getElementById('notifContainer');
+    container.innerHTML = '';
+
+    let list = [...notifications];
+    if (currentFilter === 'unread')       list = list.filter(n => !n.read);
+    else if (currentFilter !== 'all')     list = list.filter(n => n.type === currentFilter);
+
+    const total   = notifications.length;
+    const unread  = notifications.filter(n => !n.read).length;
+    const success = notifications.filter(n => n.type === 'success').length;
+
+    document.getElementById('count-all').textContent     = total;
+    document.getElementById('count-unread').textContent  = unread;
+    document.getElementById('count-success').textContent = success;
+    document.getElementById('unreadLabel').textContent   =
+      unread > 0 ? `${unread} unread notification${unread > 1 ? 's' : ''}` : 'All caught up ✓';
+
+    if (!list.length) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <i class="fa fa-bell-slash"></i>
+          <p>${total === 0 ? 'No updates yet' : 'No notifications here'}</p>
+          <span>${total === 0 ? 'Notifications will appear as you add records.' : 'Try a different filter.'}</span>
+        </div>`;
+      return;
+    }
+
+    const todayItems   = list.filter(n =>  isToday(n.ts));
+    const earlierItems = list.filter(n => !isToday(n.ts));
+
+    if (todayItems.length) {
+      appendLabel(container, 'Today');
+      todayItems.forEach(n => container.appendChild(buildCard(n)));
+    }
+    if (earlierItems.length) {
+      appendLabel(container, 'Earlier', todayItems.length > 0);
+      earlierItems.forEach(n => container.appendChild(buildCard(n)));
+    }
+  }
+
+  function appendLabel(container, text, spacer = false) {
+    const lbl = document.createElement('div');
+    lbl.className = 'section-label';
+    if (spacer) lbl.style.marginTop = '20px';
+    lbl.textContent = text;
+    container.appendChild(lbl);
+  }
+
+  function buildCard(n) {
+    const card = document.createElement('div');
+    card.className = `notif-card ${n.read ? 'read' : 'unread type-' + n.type}`;
+    card.dataset.id = n.id;
+    card.innerHTML = `
+      <div class="notif-icon ${n.iconClass}"><i class="fa ${n.icon}"></i></div>
+      <div class="notif-body">
+        <div class="notif-title">${n.title}</div>
+        <div class="notif-desc">${n.desc}</div>
+        <div class="notif-meta">
+          <span class="notif-time"><i class="fa fa-clock"></i>${timeAgo(n.ts)}</span>
+          <span class="notif-tag ${n.tagClass}">${n.tag}</span>
+        </div>
+      </div>
+      <div class="unread-dot"></div>`;
+    card.addEventListener('click', () => markRead(n.id));
+    return card;
+  }
+
+  // ── READ STATE ────────────────────────────────────────────────────────────
+  function markRead(id) {
+    const n = notifications.find(x => x.id === id);
+    if (!n || n.read) return;
+    n.read = true;
+    const ids = getReadIds();
+    ids.add(id);
+    saveReadIds(ids);
+    render();
+  }
+
+  function markAllRead() {
+    const ids = getReadIds();
+    notifications.forEach(n => { n.read = true; ids.add(n.id); });
+    saveReadIds(ids);
+    render();
+  }
+
+  // ── FILTER ────────────────────────────────────────────────────────────────
+  function setFilter(filter, btn) {
+    currentFilter = filter;
+    document.querySelectorAll('.ftab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    render();
+  }
+
+  // ── INIT ──────────────────────────────────────────────────────────────────
+  loadNotifications();
+</script>
+</body>
+</html>

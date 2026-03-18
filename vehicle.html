@@ -1,0 +1,766 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Vehicle Management — TrackIt</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #f7f8fa; --surface: #ffffff; --surface-alt: #f0f2f5;
+      --navy: #0f1f3d; --navy-light: #1a3460; --accent: #2563eb; --accent-light: #eef4ff;
+      --success: #16a34a; --success-light: #ecfdf5;
+      --danger: #dc2626; --danger-light: #fef2f2;
+      --warn: #d97706; --warn-light: #fffbeb;
+      --text-primary: #0f1f3d; --text-second: #64748b; --text-muted: #94a3b8;
+      --divider: #e2e8f0; --radius: 12px; --radius-sm: 8px;
+    }
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    html, body { height:100%; font-family:"DM Sans",sans-serif; background:var(--bg); color:var(--text-primary); overflow-x:hidden; }
+    .page { display:flex; flex-direction:column; min-height:100vh; }
+
+    /* TOPBAR */
+    .topbar { background:var(--surface); border-bottom:1px solid var(--divider); padding:0 28px; height:58px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; box-shadow:0 1px 3px rgba(15,31,61,.05); }
+    .topbar-left h1 { font-size:16px; font-weight:800; letter-spacing:-.3px; }
+    .topbar-left p  { font-size:11.5px; color:var(--text-muted); margin-top:1px; }
+    .topbar-right   { display:flex; align-items:center; gap:10px; }
+    .time-chip { display:flex; align-items:center; gap:7px; background:var(--surface-alt); border:1px solid var(--divider); border-radius:7px; padding:7px 13px; font-size:12.5px; font-weight:600; color:var(--text-second); }
+    .time-chip i { color:var(--accent); font-size:11px; }
+    .refresh-chip { display:flex; align-items:center; gap:6px; background:var(--surface-alt); border:1px solid var(--divider); border-radius:7px; padding:7px 13px; font-size:12px; font-weight:600; color:var(--text-second); cursor:pointer; transition:all .2s; }
+    .refresh-chip:hover { border-color:var(--accent); color:var(--accent); }
+    .refresh-chip.spinning i { animation:spin .7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* TABS */
+    .tab-bar { display:flex; border-bottom:2px solid var(--divider); background:var(--surface); padding:0 28px; }
+    .tab-btn { padding:14px 20px; font-size:13px; font-weight:700; color:var(--text-muted); border:none; background:none; cursor:pointer; font-family:"DM Sans",sans-serif; border-bottom:2px solid transparent; margin-bottom:-2px; transition:all .2s; display:flex; align-items:center; gap:7px; }
+    .tab-btn:hover { color:var(--text-primary); }
+    .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+    .tab-badge { display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px; background:var(--surface-alt); border-radius:20px; font-size:10px; font-weight:800; color:var(--text-muted); }
+    .tab-btn.active .tab-badge { background:var(--accent-light); color:var(--accent); }
+    .tab-badge.alert { background:var(--warn-light); color:var(--warn); }
+
+    /* CONTENT */
+    .content { flex:1; padding:24px 28px; overflow-y:auto; }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+
+    /* BANNERS */
+    .alert-banner { background:var(--warn-light); border:1.5px solid #fcd34d; border-radius:var(--radius); padding:14px 18px; display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+    .alert-banner i { color:var(--warn); font-size:16px; flex-shrink:0; }
+    .alert-banner-text strong { display:block; font-size:13px; font-weight:800; color:#92400e; }
+    .alert-banner-text span   { font-size:12px; color:#a16207; }
+    .info-banner { background:var(--accent-light); border:1.5px solid var(--accent); border-radius:var(--radius); padding:14px 18px; display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+    .info-banner i { color:var(--accent); font-size:16px; flex-shrink:0; }
+    .info-banner-text strong { display:block; font-size:13px; font-weight:800; color:var(--navy); }
+    .info-banner-text span   { font-size:12px; color:var(--text-second); }
+
+    /* FILTER + TOOLBAR */
+    .filter-bar { display:flex; gap:8px; margin-bottom:16px; align-items:center; flex-wrap:wrap; }
+    .filter-btn { padding:7px 14px; border:1.5px solid var(--divider); background:var(--surface); border-radius:7px; font-size:12px; font-weight:700; color:var(--text-second); cursor:pointer; transition:all .2s; font-family:"DM Sans",sans-serif; display:inline-flex; align-items:center; gap:6px; }
+    .filter-btn:hover { border-color:var(--accent); color:var(--accent); }
+    .filter-btn.active { background:var(--navy); color:#fff; border-color:var(--navy); }
+    .filter-badge { display:inline-flex; align-items:center; padding:1px 6px; background:rgba(255,255,255,.2); border-radius:20px; font-size:10px; font-weight:800; }
+    .filter-btn:not(.active) .filter-badge { background:var(--surface-alt); color:var(--text-muted); }
+    .toolbar-row { display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+    .search-box { position:relative; flex:1; min-width:180px; max-width:280px; }
+    .search-box input { width:100%; padding:9px 14px 9px 34px; background:var(--surface); border:1.5px solid var(--divider); border-radius:var(--radius-sm); color:var(--text-primary); font-size:13px; font-family:"DM Sans",sans-serif; transition:all .2s; outline:none; }
+    .search-box input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(37,99,235,.08); }
+    .search-icon { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:12px; pointer-events:none; }
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:9px 16px; border:none; border-radius:var(--radius-sm); font-size:13px; font-weight:700; font-family:"DM Sans",sans-serif; cursor:pointer; transition:all .18s; }
+    .btn-primary { background:var(--navy); color:#fff; box-shadow:0 2px 8px rgba(15,31,61,.18); } .btn-primary:hover { background:var(--navy-light); }
+    .btn-sm { padding:7px 13px; font-size:12px; }
+    .btn-ghost { background:transparent; color:var(--text-second); border:1.5px solid var(--divider); } .btn-ghost:hover { background:var(--surface-alt); }
+
+    /* ── TABLE ──────────────────────────────────────────────── */
+    .table-wrap {
+      background: var(--surface);
+      border: 1.5px solid var(--divider);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .data-table thead tr {
+      background: var(--surface-alt);
+      border-bottom: 2px solid var(--divider);
+    }
+    .data-table th {
+      padding: 11px 16px;
+      text-align: left;
+      font-size: 10.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .data-table th:last-child { text-align: center; }
+    .data-table tbody tr {
+      border-bottom: 1px solid var(--divider);
+      transition: background .15s;
+    }
+    .data-table tbody tr:last-child { border-bottom: none; }
+    .data-table tbody tr:hover { background: #f8faff; }
+    .data-table td {
+      padding: 13px 16px;
+      vertical-align: middle;
+    }
+    .data-table td:last-child { text-align: center; }
+
+    /* status left-border accent */
+    .data-table tbody tr { border-left: 3px solid transparent; }
+    .row-available      { border-left-color: var(--success) !important; }
+    .row-in_service     { border-left-color: var(--accent)  !important; }
+    .row-maintenance    { border-left-color: var(--danger)  !important; }
+    .row-out_of_service { border-left-color: var(--text-muted) !important; }
+
+    /* vehicle cell */
+    .vehicle-cell { display:flex; align-items:center; gap:11px; }
+    .vehicle-icon { width:34px; height:34px; border-radius:8px; background:var(--navy); display:flex; align-items:center; justify-content:center; font-size:13px; color:#fff; flex-shrink:0; }
+    .vehicle-plate { font-size:13px; font-weight:800; color:var(--text-primary); }
+    .vehicle-name  { font-size:11px; color:var(--text-muted); margin-top:2px; }
+
+    /* BADGES + TAGS */
+    .status-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; font-size:10px; font-weight:700; white-space:nowrap; }
+    .status-badge::before { content:""; width:5px; height:5px; border-radius:50%; background:currentColor; flex-shrink:0; }
+    .badge-available      { background:var(--success-light); color:var(--success); }
+    .badge-in_service     { background:var(--accent-light);  color:var(--accent); }
+    .badge-maintenance    { background:var(--danger-light);  color:var(--danger); }
+    .badge-out_of_service { background:var(--surface-alt);   color:var(--text-muted); }
+    .device-tag { display:inline-flex; align-items:center; gap:4px; background:#f0fdf4; color:#16a34a; border-radius:5px; padding:2px 8px; font-size:11px; font-weight:700; }
+    .route-tag  { display:inline-flex; align-items:center; gap:4px; background:var(--accent-light); color:var(--accent); border-radius:5px; padding:2px 8px; font-size:11px; font-weight:700; }
+    .driver-tag { display:inline-flex; align-items:center; gap:4px; background:#fdf4ff; color:#7c3aed; border-radius:5px; padding:2px 8px; font-size:11px; font-weight:700; }
+    .no-tag { color:var(--text-muted); font-style:italic; font-size:12px; }
+
+    /* row action buttons */
+    .row-actions { display:inline-flex; gap:6px; align-items:center; justify-content:center; }
+    .act-btn { padding:5px 12px; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px; font-family:"DM Sans",sans-serif; transition:all .15s; white-space:nowrap; border:1px solid transparent; }
+    .act-edit { background:var(--surface-alt); color:var(--text-second); border-color:var(--divider); }
+    .act-edit:hover { background:var(--accent-light); color:var(--accent); border-color:var(--accent); }
+
+    /* unregistered table */
+    .unregd-id-cell { font-family:monospace; font-size:12.5px; font-weight:700; color:var(--text-primary); }
+    .warn-assign-btn { padding:5px 12px; background:var(--warn); color:#fff; border:none; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px; font-family:"DM Sans",sans-serif; transition:background .15s; }
+    .warn-assign-btn:hover { background:#b45309; }
+
+    /* EMPTY */
+    .table-empty { padding:52px 20px; text-align:center; }
+    .empty-icon-box { width:56px; height:56px; background:var(--surface-alt); border:1px solid var(--divider); border-radius:14px; display:flex; align-items:center; justify-content:center; margin:0 auto 12px; }
+    .empty-icon-box i { font-size:22px; color:var(--text-muted); }
+    .table-empty h3 { font-size:14px; font-weight:800; margin-bottom:4px; }
+    .table-empty p  { font-size:13px; color:var(--text-muted); }
+
+    /* MODAL */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(15,31,61,.45); backdrop-filter:blur(4px); z-index:10000; align-items:center; justify-content:center; padding:20px; }
+    .modal-overlay.active { display:flex; }
+    .modal-box { background:var(--surface); border-radius:14px; border:1px solid var(--divider); width:100%; max-width:500px; max-height:90vh; overflow-y:auto; box-shadow:0 24px 60px rgba(15,31,61,.2); animation:mIn .22s ease; }
+    @keyframes mIn { from{opacity:0;transform:scale(.96) translateY(10px)} to{opacity:1;transform:scale(1) translateY(0)} }
+    .modal-head { padding:18px 22px; border-bottom:1px solid var(--divider); display:flex; align-items:center; justify-content:space-between; }
+    .modal-head h3 { font-size:15px; font-weight:800; }
+    .modal-close { width:30px; height:30px; border:none; background:var(--surface-alt); border-radius:7px; cursor:pointer; color:var(--text-muted); font-size:13px; display:flex; align-items:center; justify-content:center; }
+    .modal-body   { padding:18px 22px; }
+    .modal-footer { padding:14px 22px; border-top:1px solid var(--divider); background:var(--bg); display:flex; gap:10px; justify-content:flex-end; }
+    .form-group { margin-bottom:13px; }
+    .form-group label { display:block; font-size:10.5px; font-weight:700; color:var(--text-second); text-transform:uppercase; margin-bottom:6px; }
+    .form-group input, .form-group select { width:100%; padding:9px 11px; background:var(--surface-alt); border:1.5px solid var(--divider); border-radius:var(--radius-sm); font-size:13px; font-family:"DM Sans",sans-serif; color:var(--text-primary); outline:none; }
+    .form-group input:focus, .form-group select:focus { border-color:var(--accent); background:#fff; }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .device-preview-box { background:var(--warn-light); border:1.5px solid #fcd34d; border-radius:var(--radius-sm); padding:10px 14px; margin-bottom:14px; display:flex; align-items:center; gap:10px; }
+    .device-preview-box i { color:var(--warn); }
+    .device-preview-box span { font-size:12px; color:#92400e; font-weight:700; font-family:monospace; }
+
+    /* TOAST */
+    .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px); background:var(--navy); color:#fff; padding:11px 18px; border-radius:10px; font-size:13px; font-weight:500; display:flex; align-items:center; gap:9px; box-shadow:0 8px 24px rgba(15,31,61,.28); transition:transform .35s; z-index:99999; }
+    .toast.show { transform:translateX(-50%) translateY(0); }
+    .toast i { color:#4ade80; } .toast.error i { color:#f87171; }
+
+    @media(max-width:900px) {
+      .topbar, .tab-bar, .content { padding-left:16px; padding-right:16px; }
+      .form-row { grid-template-columns:1fr; }
+      .table-wrap { overflow-x:auto; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <h1>Vehicle Management</h1>
+      <p id="clientLabel">Loading…</p>
+    </div>
+    <div class="topbar-right">
+      <div class="refresh-chip" id="refreshChip" onclick="loadData()">
+        <i class="fa fa-rotate-right"></i> Refresh
+      </div>
+      <div class="time-chip">
+        <i class="fa fa-clock"></i><span id="currentTime">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('vehicles',this)">
+      <i class="fa fa-bus"></i> Vehicles
+      <span class="tab-badge" id="tab-badge-vehicles">0</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('unregistered',this)">
+      <i class="fa fa-mobile-screen"></i> Unregistered Devices
+      <span class="tab-badge alert" id="tab-badge-unregistered">0</span>
+    </button>
+  </div>
+
+  <div class="content">
+
+    <!-- ══════════ VEHICLES TAB ══════════ -->
+    <div class="tab-panel active" id="panel-vehicles">
+      <div class="info-banner">
+        <i class="fa fa-circle-info"></i>
+        <div class="info-banner-text">
+          <strong>Client-Scoped Vehicles</strong>
+          <span>Only vehicles registered to your organization are shown. Other clients cannot see or manage your vehicles.</span>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <button class="filter-btn active" onclick="setFilter('all',this)">All <span class="filter-badge" id="badge-all">0</span></button>
+        <button class="filter-btn" onclick="setFilter('available',this)">Available <span class="filter-badge" id="badge-available">0</span></button>
+        <button class="filter-btn" onclick="setFilter('in_service',this)">In Service <span class="filter-badge" id="badge-in_service">0</span></button>
+        <button class="filter-btn" onclick="setFilter('maintenance',this)">Maintenance <span class="filter-badge" id="badge-maintenance">0</span></button>
+        <button class="filter-btn" onclick="setFilter('out_of_service',this)">Out of Service <span class="filter-badge" id="badge-out_of_service">0</span></button>
+      </div>
+
+      <div class="toolbar-row">
+        <div class="search-box">
+          <i class="fa fa-search search-icon"></i>
+          <input type="text" id="searchInput" placeholder="Search vehicles…" oninput="renderVehicles()"/>
+        </div>
+        <div style="flex:1"></div>
+        <button class="btn btn-primary btn-sm" onclick="openAddModal()">
+          <i class="fa fa-plus"></i> Add Vehicle
+        </button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Vehicle</th>
+              <th>Status</th>
+              <th>Driver</th>
+              <th>Route</th>
+              <th>GPS Device</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="vehiclesTbody">
+            <tr><td colspan="6">
+              <div class="table-empty">
+                <div class="empty-icon-box"><i class="fa fa-spinner fa-spin"></i></div>
+                <h3>Loading…</h3>
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══════════ UNREGISTERED TAB ══════════ -->
+    <div class="tab-panel" id="panel-unregistered">
+      <div id="unregisteredAlertBanner" class="alert-banner" style="display:none">
+        <i class="fa fa-triangle-exclamation"></i>
+        <div class="alert-banner-text">
+          <strong id="unregisteredAlertTitle">Unregistered devices detected</strong>
+          <span>These GPS devices are assigned to your account but have no vehicle linked yet.</span>
+        </div>
+      </div>
+
+      <div class="toolbar-row">
+        <div class="search-box">
+          <i class="fa fa-search search-icon"></i>
+          <input type="text" id="searchUnregd" placeholder="Search device ID…" oninput="renderUnregistered()"/>
+        </div>
+        <div style="flex:1"></div>
+        <button class="btn btn-ghost btn-sm" onclick="loadData()">
+          <i class="fa fa-rotate"></i> Refresh
+        </button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Device ID</th>
+              <th>Name</th>
+              <th>GPS Status</th>
+              <th>Last Updated</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="unregisteredTbody">
+            <tr><td colspan="5">
+              <div class="table-empty">
+                <div class="empty-icon-box"><i class="fa fa-spinner fa-spin"></i></div>
+                <h3>Loading…</h3>
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════ VEHICLE FORM MODAL ══════════ -->
+<div class="modal-overlay" id="formModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="formTitle">Add Vehicle</h3>
+      <button class="modal-close" onclick="closeFormModal()"><i class="fa fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="device-preview-box" id="devicePreviewBox" style="display:none">
+        <i class="fa fa-mobile-screen"></i>
+        <div>
+          <div style="font-size:10px;color:#92400e;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Assigning Device</div>
+          <span id="devicePreviewId"></span>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Vehicle Name *</label>
+          <input type="text" id="inputName" placeholder="e.g. Bus Unit 1"/>
+        </div>
+        <div class="form-group">
+          <label>Plate Number *</label>
+          <input type="text" id="inputPlate" placeholder="e.g. ABC-1234"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Status</label>
+          <select id="inputStatus">
+            <option value="available">Available</option>
+            <option value="in_service">In Service</option>
+            <option value="maintenance">Maintenance</option>
+            <option value="out_of_service">Out of Service</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Assign Route</label>
+          <select id="inputRoute"><option value="">— No Route —</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Assign Driver</label>
+          <select id="inputDriver"><option value="">— No Driver —</option></select>
+        </div>
+        <div class="form-group">
+          <label>Assign GPS Device</label>
+          <select id="inputDevice"><option value="">— No Device —</option></select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeFormModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="saveBtn" onclick="saveVehicle()">
+        <i class="fa fa-save"></i> Save
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><i class="fa fa-circle-check"></i><span id="toastMsg">Done!</span></div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────
+const SUPABASE_URL  = 'https://tvbzpdjsyuxiguqrpfag.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2YnpwZGpzeXV4aWd1cXJwZmFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NzgxMDgsImV4cCI6MjA4ODM1NDEwOH0.JS04q7iiTPVnGIKS9kCa6sFzl0Cr6ot2rx-jTs9m6dQ';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ── SESSION ───────────────────────────────────────────────────────
+let CLIENT_ID = null;
+
+(function initSession() {
+  try {
+    const raw = sessionStorage.getItem('ca_session');
+    if (!raw) throw new Error('No session');
+    const s = JSON.parse(raw);
+    if (!s.expires_at || new Date(s.expires_at) <= new Date()) throw new Error('Session expired');
+    if (s.role !== 'client_admin') throw new Error('Wrong role');
+    if (!s.client_id) throw new Error('No client_id');
+    CLIENT_ID = s.client_id;
+    document.getElementById('clientLabel').textContent = `${s.name || 'Admin'} — ${s.email || ''}`;
+  } catch(e) {
+    try { window.top.location.href = '../ACCOUNT/login.html'; } catch(_) {}
+    document.querySelector('.page').innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:40px;">
+        <div style="font-size:48px;margin-bottom:16px">🔒</div>
+        <h2 style="font-size:18px;font-weight:800;margin-bottom:8px">Session Required</h2>
+        <p style="font-size:13px;color:#94a3b8">Please log in through the admin portal.</p>
+      </div>`;
+    return;
+  }
+  const tick = () => {
+    document.getElementById('currentTime').textContent =
+      new Date().toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+  };
+  tick();
+  setInterval(tick, 1000);
+  loadData();
+  setInterval(loadData, 30000);
+})();
+
+// ── STATE ─────────────────────────────────────────────────────────
+let vehicles     = [];
+let routes       = [];
+let drivers      = [];
+let gpsDevices   = [];
+let unregistered = [];
+let currentFilter = 'all';
+let editingId     = null;
+let prefillGpsId  = null;
+
+// ── LOAD ──────────────────────────────────────────────────────────
+async function loadData() {
+  if (!CLIENT_ID) return;
+  const chip = document.getElementById('refreshChip');
+  chip.classList.add('spinning');
+  try {
+    const [vRes, dRes, gRes, rRes] = await Promise.all([
+      sb.from('vehicle')
+        .select('id,vehicle_name,plate_number,status,route_id,driver_id,client_id,created_at,updated_at')
+        .eq('client_id', CLIENT_ID).order('created_at', { ascending: false }),
+      sb.from('driver')
+        .select('id,name,contact,status')
+        .eq('client_id', CLIENT_ID).order('name'),
+      sb.from('gps_device')
+        .select('id,device_id,device_name,vehicle_id,status,client_id,updated_at')
+        .eq('client_id', CLIENT_ID).order('created_at', { ascending: false }),
+      sb.from('routes')
+        .select('id,route_name,origin,destination,status')
+        .eq('status','active').order('route_name'),
+    ]);
+    if (vRes.error) throw vRes.error;
+    if (dRes.error) throw dRes.error;
+    if (gRes.error) throw gRes.error;
+    if (rRes.error) throw rRes.error;
+    vehicles     = vRes.data || [];
+    drivers      = dRes.data || [];
+    gpsDevices   = gRes.data || [];
+    routes       = rRes.data || [];
+    unregistered = gpsDevices.filter(g => !g.vehicle_id);
+    updateBadges();
+    renderVehicles();
+    renderUnregistered();
+  } catch(e) {
+    console.error(e);
+    showToast('Error: ' + e.message, 'error');
+  }
+  chip.classList.remove('spinning');
+}
+
+// ── BADGES ────────────────────────────────────────────────────────
+function updateBadges() {
+  const c = { all:vehicles.length, available:0, in_service:0, maintenance:0, out_of_service:0 };
+  vehicles.forEach(v => { if (c[v.status] !== undefined) c[v.status]++; });
+  Object.entries(c).forEach(([k,n]) => { const el = document.getElementById('badge-'+k); if(el) el.textContent = n; });
+  document.getElementById('tab-badge-vehicles').textContent     = vehicles.length;
+  document.getElementById('tab-badge-unregistered').textContent = unregistered.length;
+}
+
+// ── TABS & FILTER ─────────────────────────────────────────────────
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('panel-' + tab).classList.add('active');
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderVehicles();
+}
+
+// ── RENDER VEHICLES TABLE ─────────────────────────────────────────
+function renderVehicles() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const list = vehicles.filter(v => {
+    if (currentFilter !== 'all' && v.status !== currentFilter) return false;
+    if (q && !v.vehicle_name.toLowerCase().includes(q) && !v.plate_number.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  const tbody = document.getElementById('vehiclesTbody');
+
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="6">
+      <div class="table-empty">
+        <div class="empty-icon-box"><i class="fa fa-bus"></i></div>
+        <h3>No vehicles found</h3>
+        <p>${vehicles.length ? 'Try adjusting your search or filter.' : 'Click "Add Vehicle" to get started.'}</p>
+      </div></td></tr>`;
+    return;
+  }
+
+  const statusLabel = {
+    available:'Available', in_service:'In Service',
+    maintenance:'Maintenance', out_of_service:'Out of Service'
+  };
+
+  tbody.innerHTML = list.map(v => {
+    const driver = drivers.find(d => d.id === v.driver_id);
+    const route  = routes.find(r => r.id === v.route_id);
+    const gps    = gpsDevices.find(g => g.vehicle_id === v.id);
+
+    const driverHtml = driver
+      ? `<span class="driver-tag"><i class="fa fa-id-badge"></i> ${driver.name}</span>`
+      : `<span class="no-tag">No driver</span>`;
+
+    const routeHtml = route
+      ? `<span class="route-tag"><i class="fa fa-route"></i> ${route.route_name}</span>`
+      : `<span class="no-tag">No route</span>`;
+
+    const gpsHtml = gps
+      ? `<span class="device-tag"><i class="fa fa-satellite-dish"></i> ${gps.device_id.length > 14 ? gps.device_id.slice(0,14)+'…' : gps.device_id}</span>`
+      : `<span class="no-tag">No GPS</span>`;
+
+    return `<tr class="row-${v.status}">
+      <td>
+        <div class="vehicle-cell">
+          <div class="vehicle-icon"><i class="fa fa-bus"></i></div>
+          <div>
+            <div class="vehicle-plate">${v.plate_number}</div>
+            <div class="vehicle-name">${v.vehicle_name}</div>
+          </div>
+        </div>
+      </td>
+      <td><span class="status-badge badge-${v.status}">${statusLabel[v.status] || v.status}</span></td>
+      <td>${driverHtml}</td>
+      <td>${routeHtml}</td>
+      <td>${gpsHtml}</td>
+      <td>
+        <div class="row-actions">
+          <button class="act-btn act-edit" onclick="openEditModal('${v.id}')">
+            <i class="fa fa-pen"></i> Edit
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── RENDER UNREGISTERED TABLE ─────────────────────────────────────
+function renderUnregistered() {
+  const q = document.getElementById('searchUnregd').value.toLowerCase();
+  const list = unregistered.filter(d =>
+    !q || d.device_id.toLowerCase().includes(q) || (d.device_name||'').toLowerCase().includes(q)
+  );
+
+  const banner = document.getElementById('unregisteredAlertBanner');
+  banner.style.display = unregistered.length > 0 ? 'flex' : 'none';
+  if (unregistered.length > 0) {
+    document.getElementById('unregisteredAlertTitle').textContent =
+      `${unregistered.length} unregistered device${unregistered.length > 1 ? 's' : ''} detected`;
+  }
+
+  const tbody = document.getElementById('unregisteredTbody');
+
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="5">
+      <div class="table-empty">
+        <div class="empty-icon-box"><i class="fa fa-circle-check"></i></div>
+        <h3>All devices registered</h3>
+        <p>Every GPS device in your account has a vehicle assigned.</p>
+      </div></td></tr>`;
+    return;
+  }
+
+  const statusColors = {
+    unassigned:'var(--warn)', unregistered:'var(--accent)',
+    registered:'var(--success)', inactive:'var(--danger)',
+  };
+
+  tbody.innerHTML = list.map(d => {
+    const color = statusColors[d.status] || 'var(--text-muted)';
+    return `<tr>
+      <td><span class="unregd-id-cell">${d.device_id}</span></td>
+      <td style="font-size:12px;color:var(--text-second)">${d.device_name || '—'}</td>
+      <td><span style="font-size:12px;font-weight:700;color:${color}">${d.status || '—'}</span></td>
+      <td style="font-size:12px;color:var(--text-second)">${d.updated_at ? timeAgo(d.updated_at) : '—'}</td>
+      <td>
+        <div class="row-actions">
+          <button class="warn-assign-btn" onclick="openRegisterFromDevice('${d.id}','${d.device_id.replace(/'/g,"\\'")}')">
+            <i class="fa fa-bus"></i> Assign to Vehicle
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── MODAL HELPERS ─────────────────────────────────────────────────
+function openAddModal() {
+  editingId = null; prefillGpsId = null;
+  document.getElementById('formTitle').textContent = 'Add Vehicle';
+  document.getElementById('inputName').value   = '';
+  document.getElementById('inputPlate').value  = '';
+  document.getElementById('inputStatus').value = 'available';
+  document.getElementById('devicePreviewBox').style.display = 'none';
+  populateDropdowns(null, null, null);
+  document.getElementById('formModal').classList.add('active');
+}
+
+function openEditModal(id) {
+  const v = vehicles.find(x => x.id === id);
+  if (!v) return;
+  editingId = id; prefillGpsId = null;
+  document.getElementById('formTitle').textContent = 'Edit Vehicle';
+  document.getElementById('inputName').value   = v.vehicle_name;
+  document.getElementById('inputPlate').value  = v.plate_number;
+  document.getElementById('inputStatus').value = v.status;
+  document.getElementById('devicePreviewBox').style.display = 'none';
+  const linkedGps = gpsDevices.find(g => g.vehicle_id === id);
+  populateDropdowns(v.route_id, v.driver_id, linkedGps?.id || null);
+  document.getElementById('formModal').classList.add('active');
+}
+
+function openRegisterFromDevice(gpsRowId, deviceId) {
+  editingId = null; prefillGpsId = gpsRowId;
+  document.getElementById('formTitle').textContent = 'Assign Vehicle to Device';
+  document.getElementById('inputName').value   = '';
+  document.getElementById('inputPlate').value  = '';
+  document.getElementById('inputStatus').value = 'available';
+  document.getElementById('devicePreviewBox').style.display = 'flex';
+  document.getElementById('devicePreviewId').textContent = deviceId;
+  populateDropdowns(null, null, gpsRowId);
+  document.getElementById('formModal').classList.add('active');
+}
+
+function closeFormModal() { document.getElementById('formModal').classList.remove('active'); }
+
+function populateDropdowns(selectedRoute, selectedDriver, selectedGpsId) {
+  const rSel = document.getElementById('inputRoute');
+  rSel.innerHTML = '<option value="">— No Route —</option>';
+  routes.forEach(r => {
+    const o = document.createElement('option');
+    o.value = r.id;
+    o.textContent = r.route_name + (r.origin && r.destination ? ` (${r.origin} → ${r.destination})` : '');
+    if (r.id === selectedRoute) o.selected = true;
+    rSel.appendChild(o);
+  });
+
+  const dSel = document.getElementById('inputDriver');
+  dSel.innerHTML = '<option value="">— No Driver —</option>';
+  drivers.forEach(d => {
+    if (vehicles.find(v => v.driver_id === d.id && v.id !== editingId)) return;
+    const o = document.createElement('option');
+    o.value = d.id;
+    o.textContent = d.name + (d.status !== 'available' ? ` (${d.status})` : '');
+    if (d.id === selectedDriver) o.selected = true;
+    dSel.appendChild(o);
+  });
+
+  const gSel = document.getElementById('inputDevice');
+  gSel.innerHTML = '<option value="">— No Device —</option>';
+  gpsDevices.forEach(g => {
+    if (g.vehicle_id && g.vehicle_id !== editingId) return;
+    const o = document.createElement('option');
+    o.value = g.id;
+    o.textContent = g.device_id + (g.device_name ? ` – ${g.device_name}` : '');
+    if (g.id === selectedGpsId) o.selected = true;
+    gSel.appendChild(o);
+  });
+
+  if (prefillGpsId) gSel.value = prefillGpsId;
+}
+
+// ── SAVE ──────────────────────────────────────────────────────────
+async function saveVehicle() {
+  const name     = document.getElementById('inputName').value.trim();
+  const plate    = document.getElementById('inputPlate').value.trim();
+  const status   = document.getElementById('inputStatus').value;
+  const routeId  = document.getElementById('inputRoute').value  || null;
+  const driverId = document.getElementById('inputDriver').value || null;
+  const gpsId    = document.getElementById('inputDevice').value || null;
+
+  if (!name)  { showToast('Vehicle name is required', 'error'); return; }
+  if (!plate) { showToast('Plate number is required',  'error'); return; }
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> Saving…';
+
+  try {
+    const now = new Date().toISOString();
+    const payload = { vehicle_name:name, plate_number:plate, status, route_id:routeId, driver_id:driverId, client_id:CLIENT_ID, updated_at:now };
+    let vehicleId = editingId;
+
+    if (editingId) {
+      const { error } = await sb.from('vehicle').update(payload).eq('id', editingId).eq('client_id', CLIENT_ID);
+      if (error) throw error;
+      showToast('Vehicle updated!');
+    } else {
+      const { data, error } = await sb.from('vehicle')
+        .insert([{ id: crypto.randomUUID(), ...payload, created_at:now }]).select('id').single();
+      if (error) throw error;
+      vehicleId = data.id;
+      showToast('Vehicle added!');
+    }
+
+    if (editingId) {
+      await sb.from('gps_device')
+        .update({ vehicle_id: null, updated_at: now })
+        .eq('vehicle_id', vehicleId).eq('client_id', CLIENT_ID)
+        .neq('id', gpsId || '00000000-0000-0000-0000-000000000000');
+    }
+    if (gpsId) {
+      await sb.from('gps_device')
+        .update({ vehicle_id: vehicleId, updated_at: now })
+        .eq('id', gpsId).eq('client_id', CLIENT_ID);
+    }
+
+    closeFormModal();
+    await loadData();
+  } catch(e) {
+    console.error(e);
+    showToast('Error: ' + e.message, 'error');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<i class="fa fa-save"></i> Save';
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────
+function timeAgo(ts) {
+  const s = Math.floor((Date.now() - new Date(ts)) / 1000);
+  if (s < 10)    return 'Just now';
+  if (s < 60)    return `${s}s ago`;
+  if (s < 3600)  return `${Math.floor(s/60)}m ago`;
+  if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+  return `${Math.floor(s/86400)}d ago`;
+}
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  t.className = `toast ${type}`;
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>

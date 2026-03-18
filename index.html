@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TrackIt Admin Dashboard</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="index.css">
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <div class="brand-icon"><i class="fa fa-bus"></i></div>
+          <div class="brand-text">
+            <h2>TrackIt</h2>
+            <p>Client Admin Panel</p>
+          </div>
+        </div>
+
+        <div class="admin-info">
+          <div class="admin-avatar" id="adminAvatar">AD</div>
+          <div class="admin-details">
+            <div class="admin-name" id="adminName">Loading...</div>
+            <div class="admin-company" id="adminCompany">—</div>
+          </div>
+          <div class="online-dot"></div>
+        </div>
+
+        <nav class="sidebar-nav">
+          <!-- ── MAIN ── -->
+          <div class="nav-section-label">Main</div>
+          <ul>
+            <li>
+              <a href="dashboard.html" target="content-frame" class="active" data-page="dashboard.html">
+                <span class="nav-icon"><i class="fa fa-gauge-high"></i></span>
+                <span>Dashboard</span>
+              </a>
+            </li>
+            <li>
+              <a href="monitoring.html" target="content-frame" data-page="monitoring.html">
+                <span class="nav-icon"><i class="fa fa-location-dot"></i></span>
+                <span>Trip Monitoring</span>
+                <span class="nav-badge live">Live</span>
+              </a>
+            </li>
+          </ul>
+
+          <!-- ── MANAGEMENT ── -->
+          <div class="nav-section-label">Management</div>
+          <ul>
+            <li>
+              <a href="vehicle.html" target="content-frame" data-page="vehicle.html">
+                <span class="nav-icon"><i class="fa fa-bus"></i></span>
+                <span>Vehicles</span>
+              </a>
+            </li>
+            <li>
+              <a href="route.html" target="content-frame" data-page="route.html">
+                <span class="nav-icon"><i class="fa fa-route"></i></span>
+                <span>Routes</span>
+              </a>
+            </li>
+          </ul>
+
+          <!-- ── SYSTEM ── -->
+          <div class="nav-section-label">System</div>
+
+          <!-- INACTIVE ACCOUNT ALERT — only shown when client is inactive -->
+          <div id="inactiveBanner" style="display:none;margin:0 4px 8px;padding:10px 11px;background:rgba(220,38,38,0.12);border:1px solid rgba(220,38,38,0.28);border-radius:9px;flex-direction:column;gap:5px;">
+            <div style="display:flex;align-items:center;gap:7px;">
+              <i class="fa fa-triangle-exclamation" style="color:#f87171;font-size:11px;flex-shrink:0;"></i>
+              <span style="font-size:11px;font-weight:800;color:#f87171;">Account Inactive</span>
+            </div>
+            <div style="font-size:10px;color:rgba(255,255,255,0.42);line-height:1.5;padding-left:18px;">Your vehicles are hidden from the commuter app. Contact your administrator.</div>
+          </div>
+
+          <ul>
+            <li>
+              <a href="setting.html" target="content-frame" data-page="setting.html">
+                <span class="nav-icon"><i class="fa fa-gear"></i></span>
+                <span>Settings</span>
+              </a>
+            </li>
+          </ul>
+        </nav>
+
+        <div class="sidebar-logout">
+          <a href="#" onclick="document.getElementById('logoutModal').classList.add('show'); return false;">
+            <span class="nav-icon"><i class="fa fa-right-from-bracket"></i></span>
+            <span>Logout</span>
+          </a>
+        </div>
+      </aside>
+
+      <div class="content-area">
+        <iframe src="dashboard.html" id="content-frame" name="content-frame"></iframe>
+      </div>
+    </div>
+
+    <!-- LOGOUT MODAL -->
+    <div class="modal-overlay" id="logoutModal">
+      <div class="modal">
+        <div class="modal-icon"><i class="fa fa-right-from-bracket"></i></div>
+        <h3>Sign out?</h3>
+        <p>You'll need to sign in again to access your company dashboard.</p>
+        <div class="modal-actions">
+          <button class="btn-cancel" onclick="document.getElementById('logoutModal').classList.remove('show')">
+            Cancel
+          </button>
+          <button class="btn-logout" id="confirmLogout">Sign Out</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      // Supabase setup
+      const SUPABASE_URL = "https://tvbzpdjsyuxiguqrpfag.supabase.co";
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2YnpwZGpzeXV4aWd1cXJwZmFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NzgxMDgsImV4cCI6MjA4ODM1NDEwOH0.JS04q7iiTPVnGIKS9kCa6sFzl0Cr6ot2rx-jTs9m6dQ";
+      const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      // ─────────────────────────────────────────
+      // CHECK AUTHENTICATION & FETCH COMPANY NAME
+      // ─────────────────────────────────────────
+      (async function checkAuth() {
+        try {
+          const raw = sessionStorage.getItem('ca_session');
+          if (!raw) {
+            window.location.href = '../ACCOUNT/login.html';
+            return;
+          }
+
+          const session = JSON.parse(raw);
+
+          // Check expiry
+          if (!session.expires_at || new Date(session.expires_at) <= new Date()) {
+            sessionStorage.removeItem('ca_session');
+            window.location.href = '../ACCOUNT/login.html';
+            return;
+          }
+
+          // Check role
+          if (session.role !== 'client_admin') {
+            sessionStorage.removeItem('ca_session');
+            window.location.href = '../ACCOUNT/login.html';
+            return;
+          }
+
+          // Admin name from session
+          const adminName = session.name || 'Admin';
+          let companyName = 'Company';
+          let clientStatus = null;
+
+          // Fetch company name and status from database using client_id
+          if (session.client_id) {
+            const { data, error } = await db
+              .from('client')
+              .select('company, status')
+              .eq('id', session.client_id)
+              .single();
+
+            if (!error && data) {
+              companyName = data.company || 'Company';
+              clientStatus = data.status;
+            }
+          }
+
+          // Generate initials from company name
+          const initials = companyName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+
+          document.getElementById('adminAvatar').textContent = initials;
+          document.getElementById('adminName').textContent = companyName;
+          document.getElementById('adminCompany').textContent = adminName;
+
+          // ─────────────────────────────────────────
+          // SET INITIAL BANNER STATE (before subscribing)
+          // ─────────────────────────────────────────
+          const banner = document.getElementById('inactiveBanner');
+          banner.style.display = clientStatus === 'inactive' ? 'flex' : 'none';
+
+          // ─────────────────────────────────────────
+          // REALTIME — watch for client status changes
+          // ─────────────────────────────────────────
+          if (session.client_id) {
+            db.channel('client_status_watch')
+              .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'client',
+                filter: `id=eq.${session.client_id}`
+              }, (payload) => {
+                const newStatus = payload.new?.status;
+                banner.style.display = newStatus === 'inactive' ? 'flex' : 'none';
+              })
+              .subscribe((status) => {
+                console.log('Realtime channel status:', status);
+              });
+          }
+
+        } catch (e) {
+          console.error('Auth check failed:', e);
+          sessionStorage.removeItem('ca_session');
+          window.location.href = '../ACCOUNT/login.html';
+        }
+      })();
+
+      // ─────────────────────────────────────────
+      // NAVIGATION ACTIVE STATE
+      // ─────────────────────────────────────────
+      document.querySelectorAll(".sidebar-nav a").forEach((link) => {
+        link.addEventListener("click", function () {
+          document.querySelectorAll(".sidebar-nav a").forEach((l) => l.classList.remove("active"));
+          this.classList.add("active");
+        });
+      });
+
+      // ─────────────────────────────────────────
+      // LOGOUT
+      // ─────────────────────────────────────────
+      document.getElementById('logoutModal').addEventListener('click', function (e) {
+        if (e.target === this) this.classList.remove('show');
+      });
+
+      document.getElementById('confirmLogout').addEventListener('click', () => {
+        sessionStorage.removeItem('ca_session');
+        window.location.href = '../ACCOUNT/login.html';
+      });
+    </script>
+  </body>
+</html>

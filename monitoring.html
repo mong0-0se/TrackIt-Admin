@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Trip Monitoring — TrackIt</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg:#f7f8fa; --surface:#fff; --surface-alt:#f0f2f5; --surface-3:#e8ecf2;
+      --navy:#0f1f3d; --navy-light:#1a3460; --accent:#2563eb; --accent-light:#eef4ff;
+      --success:#16a34a; --success-light:#ecfdf5;
+      --danger:#dc2626; --danger-light:#fef2f2;
+      --warning:#d97706; --warning-light:#fffbeb;
+      --text-1:#0f1f3d; --text-2:#475569; --text-3:#64748b; --text-4:#94a3b8;
+      --divider:#e2e8f0; --radius:12px;
+    }
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+    html,body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text-1);height:100%;overflow:hidden}
+    .shell{display:flex;flex-direction:column;height:100vh}
+    .topbar{height:56px;padding:0 22px;background:var(--surface);border-bottom:1px solid var(--divider);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:12px;box-shadow:0 1px 4px rgba(15,31,61,.06);z-index:100;position:relative}
+    .topbar-left{display:flex;align-items:center;gap:12px}
+    .page-title{font-size:15px;font-weight:800;letter-spacing:-.3px;color:var(--navy)}
+    .page-sub{font-size:11px;color:var(--text-4);margin-top:1px}
+    .sep{width:1px;height:22px;background:var(--divider)}
+    .live-badge{display:inline-flex;align-items:center;gap:6px;background:var(--success-light);border:1px solid #bbf7d0;border-radius:20px;padding:4px 11px;font-size:10.5px;font-weight:700;color:var(--success);letter-spacing:.3px}
+    .live-dot{width:6px;height:6px;border-radius:50%;background:var(--success);animation:livePulse 1.6s ease infinite}
+    @keyframes livePulse{0%,100%{box-shadow:0 0 0 0 rgba(22,163,74,.6)}50%{box-shadow:0 0 0 5px rgba(22,163,74,0)}}
+    .topbar-right{display:flex;align-items:center;gap:8px}
+    .time-pill{font-size:11px;font-weight:600;font-family:monospace;color:var(--text-3);background:var(--surface-alt);border:1px solid var(--divider);border-radius:7px;padding:5px 11px}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;border:1.5px solid transparent;transition:all .15s;white-space:nowrap}
+    .btn-primary{background:var(--navy);color:#fff;border-color:var(--navy);box-shadow:0 2px 8px rgba(15,31,61,.18)}
+    .btn-primary:hover{background:var(--navy-light)}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .spinning{animation:spin .7s linear infinite}
+    .body{display:flex;flex:1;overflow:hidden}
+    #map{flex:1;height:100%;z-index:1}
+    .side{width:320px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--divider);display:flex;flex-direction:column;overflow:hidden}
+    .side-header{padding:13px 16px;border-bottom:1px solid var(--divider);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+    .side-header h2{font-size:13px;font-weight:800;color:var(--navy)}
+    .side-cnt{font-size:10px;font-weight:700;font-family:monospace;background:var(--surface-alt);border:1px solid var(--divider);border-radius:20px;padding:2px 9px;color:var(--text-3)}
+    .side-search{padding:10px 12px;border-bottom:1px solid var(--divider);flex-shrink:0}
+    .search-wrap{display:flex;align-items:center;gap:8px;background:var(--surface-alt);border:1.5px solid var(--divider);border-radius:8px;padding:7px 11px;transition:border-color .2s}
+    .search-wrap:focus-within{border-color:var(--accent)}
+    .search-wrap i{font-size:11px;color:var(--text-4)}
+    .search-wrap input{border:none;background:transparent;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text-1);width:100%;outline:none}
+    .search-wrap input::placeholder{color:var(--text-4)}
+    .route-scroll{flex:1;overflow-y:auto;padding:8px}
+    .route-scroll::-webkit-scrollbar{width:4px}
+    .route-scroll::-webkit-scrollbar-thumb{background:var(--divider);border-radius:4px}
+    .route-group{margin-bottom:6px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--divider)}
+    .route-header{display:flex;align-items:center;gap:10px;padding:11px 13px;background:var(--surface);cursor:pointer;transition:background .15s;user-select:none}
+    .route-header:hover{background:var(--surface-alt)}
+    .route-header.open{background:var(--accent-light);border-bottom:1px solid var(--divider)}
+    .route-color-bar{width:4px;height:36px;border-radius:3px;flex-shrink:0}
+    .route-header-info{flex:1;min-width:0}
+    .route-header-name{font-size:12.5px;font-weight:800;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .route-header-meta{display:flex;align-items:center;gap:6px;margin-top:3px}
+    .rh-detail{font-size:10px;color:var(--text-3);font-weight:500}
+    .route-badges{display:flex;align-items:center;gap:5px;flex-shrink:0}
+    .rbadge{font-size:9.5px;font-weight:800;padding:2px 8px;border-radius:20px;white-space:nowrap}
+    .rb-vcount{background:var(--accent-light);color:var(--accent);border:1px solid #bfdbfe;font-family:monospace}
+    .route-chevron{font-size:11px;color:var(--text-4);transition:transform .2s;flex-shrink:0;margin-left:2px}
+    .route-header.open .route-chevron{transform:rotate(180deg);color:var(--accent)}
+    .vehicle-sub{display:none;background:var(--surface-alt)}
+    .vehicle-sub.open{display:block}
+    .vsub-item{display:flex;align-items:center;gap:10px;padding:9px 13px 9px 18px;border-bottom:1px solid var(--divider);cursor:pointer;transition:background .12s;position:relative}
+    .vsub-item:last-child{border-bottom:none}
+    .vsub-item:hover{background:var(--accent-light)}
+    .vsub-item.sel{background:var(--accent-light)}
+    .vsub-item::before{content:'';position:absolute;left:24px;top:0;bottom:0;width:1px;background:var(--divider)}
+    .vsub-item:last-child::before{height:50%;bottom:auto}
+    .vsub-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;border:2px solid var(--surface-alt);position:relative;z-index:1}
+    .vsub-info{flex:1;min-width:0}
+    .vsub-name{font-size:12px;font-weight:800;color:var(--navy)}
+    .vsub-plate{font-size:10px;font-weight:600;color:var(--text-3);font-family:monospace;margin-top:1px}
+    .vsub-meta{display:flex;align-items:center;gap:6px;margin-top:3px}
+    .vsub-status{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
+    .vs-service{background:var(--success-light);color:var(--success)}
+    .vs-available{background:var(--warning-light);color:var(--warning)}
+    .vs-maint{background:var(--danger-light);color:var(--danger)}
+    .vs-offline{background:var(--surface-3);color:var(--text-3)}
+    .vsub-gps{font-size:10px;font-weight:500;display:flex;align-items:center;gap:4px}
+    .vsub-gps::before{content:'';display:inline-block;width:4px;height:4px;border-radius:50%}
+    .vsub-gps.on{color:var(--success)}
+    .vsub-gps.on::before{background:var(--success);box-shadow:0 0 4px rgba(22,163,74,.5)}
+    .vsub-gps.off{color:var(--text-4)}
+    .vsub-gps.off::before{background:var(--text-4)}
+    .vsub-focus-btn{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;background:transparent;border:1.5px solid transparent;color:var(--text-4);cursor:pointer;font-size:11px;transition:all .15s;flex-shrink:0}
+    .vsub-focus-btn:hover{background:var(--accent-light);border-color:var(--accent);color:var(--accent)}
+    .vsub-empty{padding:14px 18px;font-size:11.5px;color:var(--text-4);font-style:italic;display:flex;align-items:center;gap:8px}
+    .stats-bar{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--divider);flex-shrink:0}
+    .stat-cell{padding:10px 14px;border-right:1px solid var(--divider);text-align:center}
+    .stat-cell:last-child{border-right:none}
+    .stat-val{font-size:18px;font-weight:800;color:var(--navy);line-height:1.2}
+    .stat-lbl{font-size:9.5px;font-weight:700;color:var(--text-4);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+    .empty{padding:40px 16px;text-align:center}
+    .empty i{font-size:22px;color:var(--divider);display:block;margin-bottom:10px}
+    .empty p{font-size:13px;font-weight:700;color:var(--text-2);margin-bottom:4px}
+    .empty span{font-size:11px;color:var(--text-3)}
+    .skel{border-radius:var(--radius);background:linear-gradient(90deg,var(--surface-alt) 25%,var(--surface-3) 50%,var(--surface-alt) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
+    @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    .lock-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:14px;text-align:center;padding:24px}
+    .lock-icon{width:60px;height:60px;border-radius:16px;background:var(--danger-light);display:flex;align-items:center;justify-content:center;font-size:24px;color:var(--danger);margin-bottom:4px}
+    .lock-screen h2{font-size:17px;font-weight:800;color:var(--navy)}
+    .lock-screen p{font-size:13px;color:var(--text-3);max-width:280px}
+    .leaflet-popup-content-wrapper{border-radius:12px!important;box-shadow:0 8px 32px rgba(15,31,61,.14)!important;border:1px solid var(--divider)!important}
+    .leaflet-popup-content{margin:13px 15px!important;font-family:'DM Sans',sans-serif!important}
+    .popup-name{font-size:14px;font-weight:800;color:var(--navy);margin-bottom:3px}
+    .popup-plate{font-size:11px;font-weight:600;color:var(--text-3);font-family:monospace;margin-bottom:8px}
+    .popup-row{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--text-2);margin-top:5px}
+    .popup-row i{font-size:10px;color:var(--text-4);width:12px}
+    .popup-route{font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;margin-top:7px;display:inline-block}
+    .popup-speed{display:inline-flex;align-items:center;gap:5px;background:var(--success-light);border:1px solid #bbf7d0;color:var(--success);padding:4px 10px;border-radius:6px;font-weight:700;font-size:11px;margin-top:8px;font-family:monospace}
+    @media(max-width:700px){.body{flex-direction:column}#map{height:50vh;flex:none}.side{width:100%;border-left:none;border-top:1px solid var(--divider)}}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div>
+        <div class="page-title">Trip Monitoring</div>
+        <div class="page-sub">Real-time vehicle tracking</div>
+      </div>
+      <div class="sep"></div>
+      <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    </div>
+    <div class="topbar-right">
+      <div class="time-pill" id="timeLabel">—</div>
+      <button class="btn btn-primary" id="refreshBtn" onclick="loadData()">
+        <i class="fa fa-rotate-right" id="refreshIcon"></i> Refresh
+      </button>
+    </div>
+  </div>
+  <div class="body">
+    <div id="map"></div>
+    <div class="side">
+      <div class="side-header">
+        <h2>Routes &amp; Vehicles</h2>
+        <span class="side-cnt" id="sideCount">—</span>
+      </div>
+      <div class="stats-bar">
+        <div class="stat-cell"><div class="stat-val" id="statVehicles">—</div><div class="stat-lbl">Vehicles</div></div>
+        <div class="stat-cell"><div class="stat-val" id="statOnline" style="color:var(--success)">—</div><div class="stat-lbl">GPS Online</div></div>
+        <div class="stat-cell"><div class="stat-val" id="statRoutes">—</div><div class="stat-lbl">Routes</div></div>
+      </div>
+      <div class="side-search">
+        <div class="search-wrap">
+          <i class="fa fa-magnifying-glass"></i>
+          <input type="text" id="searchInput" placeholder="Search routes or vehicles…" oninput="renderSide()"/>
+        </div>
+      </div>
+      <div class="route-scroll" id="routeList">
+        <div style="display:flex;flex-direction:column;gap:6px;padding:4px 0">
+          <div class="skel" style="height:62px"></div>
+          <div class="skel" style="height:62px"></div>
+          <div class="skel" style="height:62px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://tvbzpdjsyuxiguqrpfag.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2YnpwZGpzeXV4aWd1cXJwZmFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NzgxMDgsImV4cCI6MjA4ODM1NDEwOH0.JS04q7iiTPVnGIKS9kCa6sFzl0Cr6ot2rx-jTs9m6dQ';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let CLIENT_ID = null;
+(function initSession() {
+  try {
+    const s = JSON.parse(sessionStorage.getItem('ca_session') || 'null');
+    if (!s || !s.client_id || new Date(s.expires_at) < new Date()) { showLock(); return; }
+    CLIENT_ID = s.client_id;
+  } catch { showLock(); }
+})();
+
+function showLock() {
+  document.body.insertAdjacentHTML('beforeend', `<div class="lock-screen"><div class="lock-icon"><i class="fa fa-lock"></i></div><h2>Session Required</h2><p>Please log in to view trip monitoring.</p></div>`);
+  try { window.top.location.href = '../ACCOUNT/login.html'; } catch(e) {}
+}
+
+function updateTime() {
+  document.getElementById('timeLabel').textContent =
+    new Date().toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+updateTime(); setInterval(updateTime, 1000);
+
+const map = L.map('map', { zoomControl:true }).setView([8.48222, 124.64722], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution:'© OpenStreetMap contributors', maxZoom:19,
+}).addTo(map);
+
+let allRoutes = [], allVehicles = [], markers = {}, routePolylines = {};
+let openRouteId = null, selectedVehicleId = null;
+
+const STATUS_COLOR = {
+  in_service: '#16a34a', available: '#d97706',
+  maintenance: '#dc2626', out_of_service: '#94a3b8',
+};
+
+// ── REALISTIC TOP-DOWN BUS MARKER WITH DIRECTION ARROW ──────────────────────
+function makeMarker(color, heading, selected = false) {
+  const deg = (heading != null && !isNaN(Number(heading))) ? Number(heading) : 0;
+
+  // Selection ring pulse
+  const selRing = selected
+    ? `<circle cx="28" cy="28" r="25" fill="${color}" fill-opacity="0.10"
+         stroke="${color}" stroke-width="2" stroke-opacity="0.5"
+         stroke-dasharray="4 3"/>`
+    : '';
+
+  // The entire icon is 56×56, bus centered at 28,28
+  // Bus drawn pointing UP (north = 0°), then rotated by heading
+  // Bus body: 22px wide, 36px long, front at top
+  const busBody = `
+    <!-- === BUS BODY === -->
+
+    <!-- Main chassis -->
+    <rect x="17" y="10" width="22" height="36" rx="5" ry="5"
+      fill="${color}" stroke="white" stroke-width="2"/>
+
+    <!-- Roof highlight (center stripe) -->
+    <rect x="24" y="11" width="8" height="34" rx="2"
+      fill="white" fill-opacity="0.08"/>
+
+    <!-- ── FRONT (top) ── -->
+    <!-- Windshield -->
+    <rect x="19.5" y="11.5" width="17" height="9" rx="2.5"
+      fill="white" fill-opacity="0.45"/>
+    <!-- Windshield divider -->
+    <line x1="28" y1="11.5" x2="28" y2="20.5"
+      stroke="${color}" stroke-width="1" stroke-opacity="0.5"/>
+
+    <!-- Front headlights -->
+    <rect x="18" y="10.5" width="4" height="3" rx="1"
+      fill="#fef08a" fill-opacity="0.95"/>
+    <rect x="34" y="10.5" width="4" height="3" rx="1"
+      fill="#fef08a" fill-opacity="0.95"/>
+
+    <!-- Front bumper -->
+    <rect x="19" y="9" width="18" height="2.5" rx="1.5"
+      fill="white" fill-opacity="0.55"/>
+
+    <!-- ── REAR (bottom) ── -->
+    <!-- Rear window -->
+    <rect x="20" y="34" width="16" height="7" rx="2"
+      fill="white" fill-opacity="0.30"/>
+    <!-- Rear window divider -->
+    <line x1="28" y1="34" x2="28" y2="41"
+      stroke="${color}" stroke-width="1" stroke-opacity="0.4"/>
+
+    <!-- Tail lights -->
+    <rect x="18" y="41.5" width="4" height="3" rx="1"
+      fill="#fca5a5" fill-opacity="0.95"/>
+    <rect x="34" y="41.5" width="4" height="3" rx="1"
+      fill="#fca5a5" fill-opacity="0.95"/>
+
+    <!-- Rear bumper -->
+    <rect x="19" y="44.5" width="18" height="2.5" rx="1.5"
+      fill="white" fill-opacity="0.40"/>
+
+    <!-- ── SIDE WINDOWS (left) ── -->
+    <rect x="15.5" y="23" width="3" height="5" rx="1.2"
+      fill="white" fill-opacity="0.45"/>
+    <rect x="15.5" y="30" width="3" height="5" rx="1.2"
+      fill="white" fill-opacity="0.35"/>
+
+    <!-- ── SIDE WINDOWS (right) ── -->
+    <rect x="37.5" y="23" width="3" height="5" rx="1.2"
+      fill="white" fill-opacity="0.45"/>
+    <rect x="37.5" y="30" width="3" height="5" rx="1.2"
+      fill="white" fill-opacity="0.35"/>
+
+    <!-- ── DOOR (left side) ── -->
+    <rect x="15.5" y="15.5" width="3" height="6" rx="1"
+      fill="white" fill-opacity="0.25"/>
+
+    <!-- ── WHEELS ── -->
+    <!-- Left front -->
+    <rect x="11" y="13" width="6" height="9" rx="2.5"
+      fill="#1e293b" stroke="white" stroke-width="1.5"/>
+    <rect x="12.5" y="14.5" width="3" height="6" rx="1.2"
+      fill="#334155"/>
+    <!-- Left rear -->
+    <rect x="11" y="32" width="6" height="9" rx="2.5"
+      fill="#1e293b" stroke="white" stroke-width="1.5"/>
+    <rect x="12.5" y="33.5" width="3" height="6" rx="1.2"
+      fill="#334155"/>
+    <!-- Right front -->
+    <rect x="39" y="13" width="6" height="9" rx="2.5"
+      fill="#1e293b" stroke="white" stroke-width="1.5"/>
+    <rect x="40.5" y="14.5" width="3" height="6" rx="1.2"
+      fill="#334155"/>
+    <!-- Right rear -->
+    <rect x="39" y="32" width="6" height="9" rx="2.5"
+      fill="#1e293b" stroke="white" stroke-width="1.5"/>
+    <rect x="40.5" y="33.5" width="3" height="6" rx="1.2"
+      fill="#334155"/>
+  `;
+
+  // Direction arrow — sits above front of bus (at y≈4, centered at x=28)
+  // A solid filled arrow triangle pointing UP
+  const dirArrow = `
+    <!-- Direction arrow pointing forward (up) -->
+    <polygon points="28,2 33,11 23,11"
+      fill="${color}" stroke="white" stroke-width="1.8"
+      stroke-linejoin="round"/>
+    <!-- Arrow inner highlight -->
+    <polygon points="28,4.5 31.5,10 24.5,10"
+      fill="white" fill-opacity="0.25"/>
+  `;
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg"
+    width="56" height="56" viewBox="0 0 56 56"
+    style="overflow:visible">
+
+    <!-- Ground shadow -->
+    <ellipse cx="28" cy="50" rx="12" ry="3.5"
+      fill="rgba(15,31,61,0.18)"/>
+
+    ${selRing}
+
+    <!-- Rotate entire bus+arrow around center by heading -->
+    <g transform="rotate(${deg} 28 28)">
+      ${dirArrow}
+      ${busBody}
+    </g>
+  </svg>`;
+
+  return L.divIcon({
+    html: svg,
+    className: '',
+    iconSize: [56, 56],
+    iconAnchor: [28, 28],
+    popupAnchor: [0, -32],
+  });
+}
+
+function statusLabel(s) {
+  return {in_service:'In Service',available:'Available',maintenance:'Maintenance',out_of_service:'Out of Service'}[s]||'—';
+}
+function statusClass(s) {
+  return {in_service:'vs-service',available:'vs-available',maintenance:'vs-maint',out_of_service:'vs-offline'}[s]||'vs-offline';
+}
+function timeAgo(ts) {
+  if (!ts) return '—';
+  const s = Math.floor((Date.now() - new Date(ts)) / 1000);
+  if (s < 10) return 'Just now';
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.floor(s/60) + 'm ago';
+  if (s < 86400) return Math.floor(s/3600) + 'h ago';
+  return Math.floor(s/86400) + 'd ago';
+}
+
+async function loadData() {
+  if (!CLIENT_ID) return;
+  const icon = document.getElementById('refreshIcon');
+  icon.classList.add('spinning');
+  try {
+    const { data: vehicles, error: vErr } = await sb.from('vehicle')
+      .select('id,vehicle_name,plate_number,status,route_id,driver_id,client_id')
+      .eq('client_id', CLIENT_ID).order('vehicle_name');
+    if (vErr) throw vErr;
+
+    const { data: gpsDevices, error: gErr } = await sb.from('gps_device')
+      .select('id,device_id,device_name,vehicle_id,status').eq('client_id', CLIENT_ID);
+    if (gErr) throw gErr;
+
+    const ourDeviceIds = (gpsDevices||[]).map(g => g.device_id);
+    let gpsPositions = [];
+    if (ourDeviceIds.length) {
+      const { data: pos, error: pErr } = await sb.from('gps_position')
+        .select('device_id,latitude,longitude,speed_kmh,heading,recorded_at')
+        .in('device_id', ourDeviceIds);
+      if (pErr) throw pErr;
+      gpsPositions = pos||[];
+    }
+
+    const { data: routes, error: rErr } = await sb.from('routes')
+      .select('id,route_name,origin,destination,status,color,coordinates,distance_km')
+      .eq('status','active').order('route_name');
+    if (rErr) throw rErr;
+
+    allRoutes = routes||[];
+    const posMap = {};
+    (gpsPositions||[]).forEach(p => { posMap[p.device_id] = p; });
+    const deviceByVehicle = {};
+    (gpsDevices||[]).forEach(g => { if (g.vehicle_id) deviceByVehicle[g.vehicle_id] = g; });
+
+    allVehicles = (vehicles||[]).map(v => {
+      const gd = deviceByVehicle[v.id]||null;
+      const pos = gd ? posMap[gd.device_id] : null;
+      return { ...v, device_id:gd?.device_id||null, device_name:gd?.device_name||null,
+        lat:pos?.latitude??null, lng:pos?.longitude??null,
+        speed:pos?.speed_kmh??null, heading:pos?.heading??null, recorded_at:pos?.recorded_at??null };
+    });
+
+    const onlineCount = allVehicles.filter(v => v.lat !== null).length;
+    document.getElementById('sideCount').textContent = allRoutes.length + ' routes';
+    document.getElementById('statVehicles').textContent = allVehicles.length;
+    document.getElementById('statOnline').textContent = onlineCount;
+    document.getElementById('statRoutes').textContent = allRoutes.length;
+
+    Object.values(markers).forEach(m => map.removeLayer(m));
+    markers = {};
+    allVehicles.forEach(v => {
+      if (v.lat === null || v.lng === null) return;
+      const color = STATUS_COLOR[v.status]||'#94a3b8';
+      const route = allRoutes.find(r => r.id === v.route_id);
+      const isSel = selectedVehicleId === v.id;
+      const m = L.marker([v.lat, v.lng], { icon: makeMarker(color, v.heading, isSel) })
+        .addTo(map).bindPopup(buildPopup(v, color, route));
+      m.on('click', () => focusVehicle(v.id));
+      markers[v.id] = m;
+    });
+
+    Object.values(routePolylines).forEach(pl => map.removeLayer(pl));
+    routePolylines = {};
+    allRoutes.forEach(r => {
+      if (!r.coordinates?.length) return;
+      routePolylines[r.id] = L.polyline(r.coordinates, {
+        color:r.color||'#2563eb', weight:4, opacity:0.65, lineCap:'round', lineJoin:'round',
+      }).addTo(map);
+    });
+
+    renderSide();
+  } catch(err) {
+    console.error(err);
+    document.getElementById('routeList').innerHTML = `<div class="empty"><i class="fa fa-circle-exclamation" style="color:var(--danger)"></i><p>Failed to load</p><span>${err.message}</span></div>`;
+  } finally {
+    icon.classList.remove('spinning');
+  }
+}
+
+function buildPopup(v, color, route) {
+  const rc = route?.color||'#2563eb';
+  const hdg = (v.heading != null) ? Math.round(v.heading) + '°' : '—';
+  return `
+    <div class="popup-name">${v.vehicle_name||'—'}</div>
+    <div class="popup-plate">${v.plate_number||''}</div>
+    <div class="popup-row"><i class="fa fa-circle" style="color:${color};font-size:7px"></i>${statusLabel(v.status)}</div>
+    ${route?`<span class="popup-route" style="background:${rc}18;color:${rc};border:1px solid ${rc}44"><i class="fa fa-route" style="margin-right:4px;font-size:9px"></i>${route.route_name}</span>`:''}
+    <div class="popup-row"><i class="fa fa-microchip"></i>${v.device_id||'No GPS device'}</div>
+    ${v.speed!==null?`<div class="popup-speed"><i class="fa fa-gauge-high"></i>${Number(v.speed).toFixed(1)} km/h &nbsp;·&nbsp; <i class="fa fa-compass"></i> ${hdg}</div>`:''}
+    ${v.recorded_at?`<div class="popup-row"><i class="fa fa-clock"></i>Updated ${timeAgo(v.recorded_at)}</div>`:''}`;
+}
+
+function renderSide() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const el = document.getElementById('routeList');
+  const filteredRoutes = allRoutes.filter(r =>
+    !q || r.route_name.toLowerCase().includes(q) ||
+    (r.origin||'').toLowerCase().includes(q) || (r.destination||'').toLowerCase().includes(q) ||
+    allVehicles.filter(v => v.route_id === r.id).some(v =>
+      v.vehicle_name?.toLowerCase().includes(q) || v.plate_number?.toLowerCase().includes(q)));
+  const unassigned = allVehicles.filter(v => !v.route_id).filter(v =>
+    !q || v.vehicle_name?.toLowerCase().includes(q) || v.plate_number?.toLowerCase().includes(q));
+  if (!allRoutes.length && !allVehicles.length) {
+    el.innerHTML = `<div class="empty"><i class="fa fa-route"></i><p>No data</p><span>No routes or vehicles found.</span></div>`; return;
+  }
+  if (!filteredRoutes.length && !unassigned.length) {
+    el.innerHTML = `<div class="empty"><i class="fa fa-magnifying-glass"></i><p>No results</p><span>Try a different search.</span></div>`; return;
+  }
+  let html = filteredRoutes.map(r => {
+    const rv = allVehicles.filter(v => v.route_id === r.id);
+    const isOpen = openRouteId === r.id;
+    const color = r.color||'#2563eb';
+    const rows = rv.length ? rv.map(v => buildVehicleRow(v)).join('')
+      : `<div class="vsub-empty"><i class="fa fa-circle-info"></i>No vehicles assigned</div>`;
+    return `<div class="route-group" data-rid="${r.id}">
+      <div class="route-header${isOpen?' open':''}" onclick="toggleRoute('${r.id}')">
+        <div class="route-color-bar" style="background:${color}"></div>
+        <div class="route-header-info">
+          <div class="route-header-name">${r.route_name}</div>
+          <div class="route-header-meta"><span class="rh-detail">${r.origin||'—'} → ${r.destination||'—'}</span></div>
+        </div>
+        <div class="route-badges"><span class="rbadge rb-vcount">${rv.length} <i class="fa fa-bus" style="font-size:8px;margin-left:2px"></i></span></div>
+        <i class="fa fa-chevron-down route-chevron"></i>
+      </div>
+      <div class="vehicle-sub${isOpen?' open':''}">${rows}</div>
+    </div>`;
+  }).join('');
+  if (unassigned.length) {
+    const isOpen = openRouteId === '__unassigned__';
+    html += `<div class="route-group" data-rid="__unassigned__">
+      <div class="route-header${isOpen?' open':''}" onclick="toggleRoute('__unassigned__')">
+        <div class="route-color-bar" style="background:var(--text-4)"></div>
+        <div class="route-header-info">
+          <div class="route-header-name" style="color:var(--text-3)">Unassigned Vehicles</div>
+          <div class="route-header-meta"><span class="rh-detail">No route assigned</span></div>
+        </div>
+        <div class="route-badges"><span class="rbadge rb-vcount">${unassigned.length} <i class="fa fa-bus" style="font-size:8px;margin-left:2px"></i></span></div>
+        <i class="fa fa-chevron-down route-chevron"></i>
+      </div>
+      <div class="vehicle-sub${isOpen?' open':''}">${unassigned.map(v => buildVehicleRow(v)).join('')}</div>
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+function buildVehicleRow(v) {
+  const hasLoc = v.lat !== null;
+  const dotColor = STATUS_COLOR[v.status]||'#94a3b8';
+  return `<div class="vsub-item${selectedVehicleId===v.id?' sel':''}" data-vid="${v.id}" onclick="focusVehicle('${v.id}')">
+    <div class="vsub-dot" style="background:${dotColor};border-color:var(--surface-alt)"></div>
+    <div class="vsub-info">
+      <div class="vsub-name">${v.vehicle_name||'—'}</div>
+      <div class="vsub-plate">${v.plate_number||''}</div>
+      <div class="vsub-meta">
+        <span class="vsub-status ${statusClass(v.status)}">${statusLabel(v.status)}</span>
+        <span class="vsub-gps ${hasLoc?'on':'off'}">${hasLoc?timeAgo(v.recorded_at):'No GPS'}</span>
+      </div>
+    </div>
+    ${hasLoc?`<button class="vsub-focus-btn" onclick="event.stopPropagation();focusVehicle('${v.id}')"><i class="fa fa-crosshairs"></i></button>`:''}
+  </div>`;
+}
+
+function toggleRoute(routeId) {
+  const wasOpen = openRouteId === routeId;
+  openRouteId = wasOpen ? null : routeId;
+  if (!wasOpen && routeId !== '__unassigned__') {
+    const route = allRoutes.find(r => r.id === routeId);
+    if (route?.coordinates?.length) {
+      map.flyToBounds(L.latLngBounds(route.coordinates), { padding:[40,40], duration:0.8 });
+    } else {
+      const rvs = allVehicles.filter(v => v.route_id === routeId && v.lat !== null);
+      if (rvs.length) map.flyToBounds(L.latLngBounds(rvs.map(v => [v.lat, v.lng])), { padding:[60,60], duration:0.8 });
+    }
+    Object.entries(routePolylines).forEach(([rid, pl]) => {
+      pl.setStyle({ opacity: rid===routeId ? 1 : 0.2, weight: rid===routeId ? 5 : 3 });
+    });
+  } else {
+    Object.values(routePolylines).forEach(pl => pl.setStyle({ opacity:0.65, weight:4 }));
+  }
+  renderSide();
+}
+
+function focusVehicle(vehicleId) {
+  selectedVehicleId = vehicleId;
+  const v = allVehicles.find(x => x.id === vehicleId);
+  if (!v) return;
+  Object.entries(markers).forEach(([vid, m]) => {
+    const sv = allVehicles.find(x => x.id === vid);
+    if (!sv) return;
+    m.setIcon(makeMarker(STATUS_COLOR[sv.status]||'#94a3b8', sv.heading, vid === vehicleId));
+  });
+  if (v.lat !== null && markers[vehicleId]) {
+    map.flyTo([v.lat, v.lng], 17, { duration:0.7 });
+    markers[vehicleId].openPopup();
+  }
+  renderSide();
+}
+
+sb.channel('pos_rt').on('postgres_changes',{event:'*',schema:'public',table:'gps_position'},()=>loadData()).subscribe();
+sb.channel('veh_rt').on('postgres_changes',{event:'*',schema:'public',table:'vehicle'},()=>loadData()).subscribe();
+sb.channel('rte_rt').on('postgres_changes',{event:'*',schema:'public',table:'routes'},()=>loadData()).subscribe();
+setInterval(loadData, 30_000);
+loadData();
+</script>
+</body>
+</html>

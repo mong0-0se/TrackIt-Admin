@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Records Download</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <style>
+    :root {
+      --bg:#F7F8FA; --surface:#FFFFFF; --surface-alt:#F0F2F5;
+      --navy:#0F1F3D; --navy-light:#1A3460;
+      --accent:#2563EB; --accent-light:#EEF4FF;
+      --success:#16A34A; --success-light:#ECFDF5;
+      --text-primary:#0F1F3D; --text-second:#64748B; --text-muted:#94A3B8;
+      --divider:#E2E8F0; --radius:12px; --radius-sm:8px;
+    }
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+    html,body{margin:0;padding:0;font-family:'DM Sans',sans-serif;background:transparent;color:var(--text-primary);}
+    .module{display:flex;flex-direction:column;gap:24px;padding:20px;}
+    .card{background:var(--surface);border:1px solid var(--divider);border-radius:var(--radius);overflow:hidden;}
+    .card-head{padding:16px 20px;border-bottom:1px solid var(--divider);display:flex;align-items:center;gap:12px;}
+    .card-head-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+    .chi-blue{background:var(--accent-light);color:var(--accent);}
+    .chi-navy{background:#EEF1F7;color:var(--navy);}
+    .card-head-info h2{font-size:14px;font-weight:800;letter-spacing:-0.2px;margin:0;}
+    .card-head-info p{font-size:11.5px;color:var(--text-muted);margin:1px 0 0;}
+    .card-body{padding:20px;}
+    .date-range-row{display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--surface-alt);border-radius:var(--radius-sm);border:1px solid var(--divider);margin-bottom:16px;flex-wrap:wrap;}
+    .date-range-row label{font-size:11.5px;font-weight:700;color:var(--text-second);white-space:nowrap;}
+    .date-range-row input[type="date"]{padding:7px 10px;background:#fff;border:1.5px solid var(--divider);border-radius:7px;font-size:12.5px;font-family:'DM Sans',sans-serif;color:var(--text-primary);outline:none;transition:border 0.2s;}
+    .date-range-row input[type="date"]:focus{border-color:var(--accent);}
+    .date-range-row .sep{font-size:11px;color:var(--text-muted);font-weight:600;}
+    .download-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+    .download-card{background:var(--surface-alt);border:1.5px solid var(--divider);border-radius:var(--radius);padding:18px;transition:all 0.2s;position:relative;overflow:hidden;}
+    .download-card:hover{border-color:var(--accent);background:#fff;box-shadow:0 4px 16px rgba(37,99,235,0.08);transform:translateY(-1px);}
+    .download-card-icon{width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px;}
+    .dci-blue{background:var(--accent-light);color:var(--accent);}
+    .dci-green{background:#D1FAE5;color:var(--success);}
+    .dci-purple{background:#F3E8FF;color:#7C3AED;}
+    .dci-warn{background:#FEF9C3;color:#D97706;}
+    .download-card-title{font-size:13px;font-weight:800;color:var(--text-primary);margin-bottom:3px;}
+    .download-card-desc{font-size:11.5px;color:var(--text-muted);line-height:1.5;}
+    .download-card-action{display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:12px;border-top:1px solid var(--divider);}
+    .download-format{font-size:10.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;}
+    .download-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;}
+    .download-btn:hover{background:var(--navy-light);}
+    .download-btn:disabled{opacity:0.6;cursor:not-allowed;}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 16px;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.18s;}
+    .btn-primary{background:var(--navy);color:#fff;}
+    .btn-primary:hover:not(:disabled){background:var(--navy-light);}
+    .btn-primary:disabled{opacity:0.6;cursor:not-allowed;}
+    .btn-ghost{background:transparent;color:var(--text-second);border:1.5px solid var(--divider);}
+    .btn-ghost:hover{background:var(--surface-alt);}
+    .btn-sm{padding:7px 13px;font-size:12px;}
+    .info-text{font-size:12px;color:var(--text-muted);margin:0;}
+    .info-text strong{color:var(--text-second);}
+    @media(max-width:900px){.download-grid{grid-template-columns:1fr;}.date-range-row{flex-direction:column;align-items:flex-start;}}
+  </style>
+</head>
+<body>
+<div class="module">
+
+  <!-- Date Filter -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-head-icon chi-blue"><i class="fa fa-filter"></i></div>
+      <div class="card-head-info"><h2>Date Range Filter</h2><p>Apply to all record exports below</p></div>
+    </div>
+    <div class="card-body">
+      <div class="date-range-row">
+        <label>From</label>
+        <input type="date" id="dateFrom"/>
+        <span class="sep">→</span>
+        <label>To</label>
+        <input type="date" id="dateTo"/>
+        <button class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="clearDates()"><i class="fa fa-xmark"></i> Clear</button>
+      </div>
+      <p class="info-text">
+        <i class="fa fa-circle-info" style="color:var(--accent);margin-right:5px;"></i>
+        Leave blank to export all records. Date filters apply based on <strong>created_at</strong>.
+      </p>
+    </div>
+  </div>
+
+  <!-- Download Cards -->
+  <div class="download-grid">
+    <div class="download-card">
+      <div class="download-card-icon dci-blue"><i class="fa fa-id-card"></i></div>
+      <div class="download-card-title">Drivers</div>
+      <div class="download-card-desc">Full list of registered drivers — name, phone, license, status, and vehicle assignment.</div>
+      <div class="download-card-action">
+        <span class="download-format"><i class="fa fa-file-word" style="margin-right:4px;color:#2563EB;"></i>DOCX</span>
+        <button class="download-btn" id="dl-driver" onclick="downloadRecord('driver')"><i class="fa fa-download"></i> Export</button>
+      </div>
+    </div>
+
+    <div class="download-card">
+      <div class="download-card-icon dci-green"><i class="fa fa-bus"></i></div>
+      <div class="download-card-title">Vehicles</div>
+      <div class="download-card-desc">All registered vehicles — plate number, status, and route assignment.</div>
+      <div class="download-card-action">
+        <span class="download-format"><i class="fa fa-file-word" style="margin-right:4px;color:#2563EB;"></i>DOCX</span>
+        <button class="download-btn" id="dl-vehicle" onclick="downloadRecord('vehicle')"><i class="fa fa-download"></i> Export</button>
+      </div>
+    </div>
+    <div class="download-card">
+      <div class="download-card-icon dci-warn"><i class="fa fa-route"></i></div>
+      <div class="download-card-title">Routes</div>
+      <div class="download-card-desc">All defined routes — name, origin, destination, distance, and active status.</div>
+      <div class="download-card-action">
+        <span class="download-format"><i class="fa fa-file-word" style="margin-right:4px;color:#2563EB;"></i>DOCX</span>
+        <button class="download-btn" id="dl-routes" onclick="downloadRecord('routes')"><i class="fa fa-download"></i> Export</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export All -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-head-icon chi-navy"><i class="fa fa-box-archive"></i></div>
+      <div class="card-head-info"><h2>Export All Records</h2><p>Download everything as one organized Word document</p></div>
+    </div>
+    <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+      <p class="info-text">Generates one <strong>.docx</strong> with a cover page plus Drivers, Vehicles, and Routes — date filter applied.</p>
+      <button class="btn btn-primary btn-sm" id="dl-all" onclick="downloadAll()" style="flex-shrink:0;">
+        <i class="fa fa-download"></i> Download All
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const SUPABASE_URL      = 'https://tvbzpdjsyuxiguqrpfag.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2YnpwZGpzeXV4aWd1cXJwZmFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NzgxMDgsImV4cCI6MjA4ODM1NDEwOH0.JS04q7iiTPVnGIKS9kCa6sFzl0Cr6ot2rx-jTs9m6dQ';
+  const SESSION_KEY = 'ca_session';
+
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  function sendToast(msg, type='success') { window.parent.postMessage({type:'toast',message:msg,messageType:type},'*'); }
+  function resizeFrame() { window.parent.postMessage({type:'resizeFrame',height:document.body.scrollHeight},'*'); }
+  function getSession() {
+    try { const s=JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null'); if(s&&new Date(s.expires_at)>new Date())return s; } catch(e){}
+    return null;
+  }
+
+  function clearDates() {
+    document.getElementById('dateFrom').value = '';
+    document.getElementById('dateTo').value   = '';
+  }
+
+  // Default: last 30 days
+  const today = new Date(), prior = new Date();
+  prior.setDate(prior.getDate() - 30);
+  document.getElementById('dateTo').value   = today.toISOString().split('T')[0];
+  document.getElementById('dateFrom').value = prior.toISOString().split('T')[0];
+
+  async function fetchTable(table) {
+    const from = document.getElementById('dateFrom').value;
+    const to   = document.getElementById('dateTo').value;
+    let q = sb.from(table).select('*').order('created_at', { ascending: false });
+    if (from) q = q.gte('created_at', from);
+    if (to)   q = q.lte('created_at', to + 'T23:59:59');
+    const { data, error } = await q;
+    if (error) throw error;
+    return data || [];
+  }
+
+  // ── docx helpers ──────────────────────────────────────────────────────────
+  const {
+    Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+    AlignmentType, BorderStyle, WidthType, ShadingType, VerticalAlign,
+    PageBreak, Header, Footer, PageNumber
+  } = window.docx;
+
+  const NAVY='0F1F3D', GRAY='64748B', WHITE='FFFFFF', LGRAY='F0F2F5', DIVIDER_C='E2E8F0', MUTED='94A3B8', ACCENT='2563EB';
+
+  const bdr  = { style:BorderStyle.SINGLE, size:1, color:DIVIDER_C };
+  const bAll = { top:bdr, bottom:bdr, left:bdr, right:bdr };
+
+  const fmt = v => {
+    if (v===null||v===undefined||v==='') return '—';
+    if (typeof v==='string' && /^\d{4}-\d{2}-\d{2}T/.test(v))
+      return new Date(v).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+    return String(v);
+  };
+
+  const hCell = (text, w) => new TableCell({
+    borders:bAll, width:{size:w,type:WidthType.DXA},
+    shading:{fill:NAVY,type:ShadingType.CLEAR},
+    margins:{top:100,bottom:100,left:120,right:120},
+    verticalAlign:VerticalAlign.CENTER,
+    children:[new Paragraph({ children:[new TextRun({text,bold:true,color:WHITE,font:'Arial',size:18})] })]
+  });
+
+  const dCell = (text, w, alt) => new TableCell({
+    borders:bAll, width:{size:w,type:WidthType.DXA},
+    shading:{fill:alt?LGRAY:WHITE,type:ShadingType.CLEAR},
+    margins:{top:80,bottom:80,left:120,right:120},
+    verticalAlign:VerticalAlign.CENTER,
+    children:[new Paragraph({ children:[new TextRun({text:fmt(text),font:'Arial',size:18,color:'334155'})] })]
+  });
+
+  const TABLE_CONFIG = {
+    driver: {
+      title:'Drivers', desc:'Registered drivers filtered by the selected date range.',
+      headers:['Name','Contact','License No.','Status','Created At'],
+      fields: ['name','contact','license_number','status','created_at'],
+      widths: [2000,1800,2000,1200,2160]   // sum=9160 (A4 with ~1.5cm margins)
+    },
+    vehicle: {
+      title:'Vehicles', desc:'Registered vehicles filtered by the selected date range.',
+      headers:['Vehicle Name','Plate Number','Status','Created At'],
+      fields: ['vehicle_name','plate_number','status','created_at'],
+      widths: [2400,2200,1400,3160]  // wider to use full page
+    },
+    routes: {
+      title:'Routes', desc:'Transport routes filtered by the selected date range.',
+      headers:['Route Name','Origin','Destination','Distance (km)','Status'],
+      fields: ['route_name','origin','destination','distance_km','status'],
+      widths: [1800,1800,1800,1560,2200]
+    }
+  };
+
+  function buildTable(cfg, rows) {
+    const total = cfg.widths.reduce((a,b)=>a+b,0);
+    const headerRow = new TableRow({ tableHeader:true, children:cfg.headers.map((h,i)=>hCell(h,cfg.widths[i])) });
+
+    if (!rows.length) {
+      return new Table({ width:{size:total,type:WidthType.DXA}, columnWidths:cfg.widths, rows:[
+        headerRow,
+        new TableRow({ children:[new TableCell({
+          borders:bAll, columnSpan:cfg.headers.length, width:{size:total,type:WidthType.DXA},
+          shading:{fill:LGRAY,type:ShadingType.CLEAR}, margins:{top:120,bottom:120,left:120,right:120},
+          children:[new Paragraph({ alignment:AlignmentType.CENTER, children:[new TextRun({text:'No records found for this date range.',font:'Arial',size:18,color:GRAY,italics:true})] })]
+        })] })
+      ]});
+    }
+
+    return new Table({
+      width:{size:total,type:WidthType.DXA}, columnWidths:cfg.widths,
+      rows:[ headerRow, ...rows.map((row,ri)=>new TableRow({ children:cfg.fields.map((f,fi)=>dCell(row[f],cfg.widths[fi],ri%2===1)) })) ]
+    });
+  }
+
+  function sectionBlock(cfg, rows) {
+    return [
+      new Paragraph({ spacing:{before:320,after:80}, children:[new TextRun({text:cfg.title,bold:true,font:'Arial',size:28,color:NAVY})] }),
+      new Paragraph({ spacing:{before:0,after:80},   children:[new TextRun({text:cfg.desc,font:'Arial',size:19,color:GRAY})] }),
+      new Paragraph({ spacing:{before:0,after:160},  children:[new TextRun({text:`${rows.length} record${rows.length!==1?'s':''} found`,font:'Arial',size:17,color:MUTED,italics:true})] }),
+      buildTable(cfg, rows)
+    ];
+  }
+
+  function makeHeader(subtitle) {
+    return new Header({ children:[new Paragraph({
+      alignment:AlignmentType.RIGHT,
+      border:{bottom:{style:BorderStyle.SINGLE,size:2,color:DIVIDER_C,space:1}},
+      spacing:{after:80},
+      children:[
+        new TextRun({text:'TrackIt  ',bold:true,font:'Arial',size:18,color:NAVY}),
+        new TextRun({text:`|  ${subtitle}`,font:'Arial',size:18,color:GRAY})
+      ]
+    })]});
+  }
+
+  function makeFooter(dateStr) {
+    return new Footer({ children:[new Paragraph({
+      alignment:AlignmentType.CENTER,
+      border:{top:{style:BorderStyle.SINGLE,size:2,color:DIVIDER_C,space:1}},
+      spacing:{before:80},
+      children:[
+        new TextRun({text:'Page ',font:'Arial',size:17,color:GRAY}),
+        new TextRun({children:[PageNumber.CURRENT],font:'Arial',size:17,color:GRAY}),
+        new TextRun({text:'  of  ',font:'Arial',size:17,color:GRAY}),
+        new TextRun({children:[PageNumber.TOTAL_PAGES],font:'Arial',size:17,color:GRAY}),
+        new TextRun({text:`     Exported: ${dateStr}     TrackIt © 2026`,font:'Arial',size:17,color:GRAY})
+      ]
+    })]});
+  }
+
+  function getDateLabel() {
+    const from = document.getElementById('dateFrom').value;
+    const to   = document.getElementById('dateTo').value;
+    if (!from && !to) return 'All dates';
+    if (from && to)   return `${from} to ${to}`;
+    if (from)         return `From ${from}`;
+    return `Up to ${to}`;
+  }
+
+  // ── Single table export ──
+  async function downloadRecord(table) {
+    if (!getSession()) { sendToast('Session expired. Please log in again.','error'); return; }
+    const btn = document.getElementById('dl-'+table);
+    btn.disabled=true; btn.innerHTML='<i class="fa fa-spinner fa-spin"></i>';
+    try {
+      const rows    = await fetchTable(table);
+      const cfg     = TABLE_CONFIG[table];
+      const dateStr = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+      const session = getSession();
+
+      const doc = new Document({
+        styles:{ default:{ document:{ run:{ font:'Arial', size:22 } } } },
+        sections:[{
+          properties:{ page:{ size:{width:11906,height:16838}, margin:{top:1080,right:1080,bottom:1080,left:1080} } },
+          headers:{ default:makeHeader(cfg.title) },
+          footers:{ default:makeFooter(dateStr) },
+          children:[
+            ...sectionBlock(cfg, rows),
+            // Date range note at bottom
+            new Paragraph({ spacing:{before:160,after:0}, children:[
+              new TextRun({text:'Date range: ',bold:true,font:'Arial',size:17,color:GRAY}),
+              new TextRun({text:getDateLabel(),font:'Arial',size:17,color:MUTED})
+            ]}),
+            ...(session?.name ? [new Paragraph({ spacing:{before:60,after:0}, children:[
+              new TextRun({text:'Exported by: ',bold:true,font:'Arial',size:17,color:GRAY}),
+              new TextRun({text:session.name,font:'Arial',size:17,color:MUTED})
+            ]})] : [])
+          ]
+        }]
+      });
+
+      const blob = await Packer.toBlob(doc);
+      saveAs(blob, `trackit_${table}_${new Date().toISOString().split('T')[0]}.docx`);
+      sendToast(`${rows.length} ${cfg.title.toLowerCase()} record${rows.length!==1?'s':''} exported.`, 'success');
+    } catch(err) { console.error(err); sendToast('Export failed: '+err.message,'error'); }
+    finally { btn.disabled=false; btn.innerHTML='<i class="fa fa-download"></i> Export'; }
+  }
+
+  // ── All tables → one doc with cover page ──
+  async function downloadAll() {
+    if (!getSession()) { sendToast('Session expired. Please log in again.','error'); return; }
+    const btn = document.getElementById('dl-all');
+    btn.disabled=true; btn.innerHTML='<i class="fa fa-spinner fa-spin"></i> Preparing...';
+    try {
+      const keys = ['driver','vehicle','routes'];
+      const dataMap = {};
+      for (const k of keys) dataMap[k] = await fetchTable(k);
+
+      const dateStr   = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+      const total     = Object.values(dataMap).reduce((a,b)=>a+b.length,0);
+      const session   = getSession();
+      const dateLabel = getDateLabel();
+
+      // Cover page
+      const cover = [
+        new Paragraph({spacing:{before:2000,after:0},children:[]}),
+        new Paragraph({alignment:AlignmentType.CENTER,spacing:{before:0,after:120},children:[new TextRun({text:'TrackIt',bold:true,font:'Arial',size:64,color:NAVY})]}),
+        new Paragraph({alignment:AlignmentType.CENTER,spacing:{before:0,after:120},children:[new TextRun({text:'Public Transport Management System',font:'Arial',size:24,color:GRAY})]}),
+        new Paragraph({alignment:AlignmentType.CENTER,spacing:{before:0,after:400},children:[new TextRun({text:'Records Export',bold:true,font:'Arial',size:30,color:ACCENT})]}),
+        new Paragraph({alignment:AlignmentType.CENTER,spacing:{before:0,after:400},border:{bottom:{style:BorderStyle.SINGLE,size:4,color:DIVIDER_C,space:1}},children:[]}),
+        new Paragraph({alignment:AlignmentType.CENTER,spacing:{before:0,after:100},children:[new TextRun({text:`Export Date: ${dateStr}`,font:'Arial',size:22,color:GRAY})]}),
+        new Paragraph({alignment:AlignmentType.CENTER,spacing:{before:0,after:100},children:[new TextRun({text:`Date Range: ${dateLabel}`,font:'Arial',size:22,color:GRAY})]}),        ...(session?.name ? [new Paragraph({alignment:AlignmentType.CENTER,spacing:{before:0,after:100},children:[new TextRun({text:`Exported by: ${session.name}`,font:'Arial',size:22,color:GRAY})]})] : []),
+        new Paragraph({alignment:AlignmentType.CENTER,spacing:{before:0,after:100},children:[
+          new TextRun({text:'Total Records: ',font:'Arial',size:22,color:GRAY}),
+          new TextRun({text:String(total),bold:true,font:'Arial',size:22,color:NAVY})
+        ]}),
+        new Paragraph({children:[new PageBreak()]})
+      ];
+
+      const bodyChildren = [];
+      keys.forEach((k, idx) => {
+        bodyChildren.push(...sectionBlock(TABLE_CONFIG[k], dataMap[k]));
+        if (idx < keys.length-1) bodyChildren.push(new Paragraph({children:[new PageBreak()]}));
+      });
+
+      const doc = new Document({
+        styles:{ default:{ document:{ run:{ font:'Arial', size:22 } } } },
+        sections:[{
+          properties:{ page:{ size:{width:11906,height:16838}, margin:{top:1080,right:1080,bottom:1080,left:1080} } },
+          headers:{ default:makeHeader('Records Export') },
+          footers:{ default:makeFooter(dateStr) },
+          children:[...cover, ...bodyChildren]
+        }]
+      });
+
+      const blob = await Packer.toBlob(doc);
+      saveAs(blob, `trackit_all_records_${new Date().toISOString().split('T')[0]}.docx`);
+      sendToast(`All records exported — ${total} total.`, 'success');
+    } catch(err) { console.error(err); sendToast('Export failed: '+err.message,'error'); }
+    finally { btn.disabled=false; btn.innerHTML='<i class="fa fa-download"></i> Download All'; }
+  }
+
+  resizeFrame();
+</script>
+</body>
+</html>

@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Vehicle Management — TrackIt</title>
+
+  <!-- Fonts & icons -->
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css"/>
+  <link rel="stylesheet" href="vehicles.css"/>
+  <link rel="stylesheet" href="unregistered.css"/>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       TOPBAR
+  ════════════════════════════════════════════════════════════════ -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <h1>Vehicle Management</h1>
+      <p id="clientLabel">Loading…</p>
+    </div>
+    <div class="topbar-right">
+      <div class="refresh-chip" id="refreshChip" onclick="loadData()">
+        <i class="fa fa-rotate-right"></i> Refresh
+      </div>
+      <div class="time-chip">
+        <i class="fa fa-clock"></i>
+        <span id="currentTime">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       TABS
+  ════════════════════════════════════════════════════════════════ -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('vehicles', this)">
+      <i class="fa fa-bus"></i> Vehicles
+      <span class="tab-badge" id="tab-badge-vehicles">0</span>
+    </button>
+    <button class="tab-btn" onclick="switchTab('unregistered', this)">
+      <i class="fa fa-mobile-screen"></i> Unregistered Devices
+      <span class="tab-badge alert" id="tab-badge-unregistered">0</span>
+    </button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       CONTENT
+  ════════════════════════════════════════════════════════════════ -->
+  <div class="content">
+
+    <!-- ── VEHICLES PANEL ─────────────────────────────────────── -->
+    <div class="tab-panel active" id="panel-vehicles">
+
+      <div class="info-banner">
+        <i class="fa fa-circle-info"></i>
+        <div class="info-banner-text">
+          <strong>Client-Scoped Vehicles</strong>
+          <span>Only vehicles registered to your organisation are shown.</span>
+        </div>
+      </div>
+
+      <!-- Status filters -->
+      <div class="filter-bar">
+        <button class="filter-btn active" onclick="setFilter('all', this)">
+          All <span class="filter-badge" id="badge-all">0</span>
+        </button>
+        <button class="filter-btn" onclick="setFilter('available', this)">
+          Available <span class="filter-badge" id="badge-available">0</span>
+        </button>
+        <button class="filter-btn" onclick="setFilter('in_service', this)">
+          In Service <span class="filter-badge" id="badge-in_service">0</span>
+        </button>
+        <button class="filter-btn" onclick="setFilter('maintenance', this)">
+          Maintenance <span class="filter-badge" id="badge-maintenance">0</span>
+        </button>
+        <button class="filter-btn" onclick="setFilter('out_of_service', this)">
+          Out of Service <span class="filter-badge" id="badge-out_of_service">0</span>
+        </button>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="toolbar-row">
+        <div class="search-box">
+          <i class="fa fa-search search-icon"></i>
+          <input type="text" id="searchInput" placeholder="Search vehicles…" oninput="renderVehicles()"/>
+        </div>
+        <div style="flex:1"></div>
+        <button class="btn btn-primary btn-sm" onclick="openAddModal()">
+          <i class="fa fa-plus"></i> Add Vehicle
+        </button>
+      </div>
+
+      <!-- Vehicle cards -->
+      <div class="vehicles-grid" id="vehiclesGrid">
+        <div class="empty-state" style="grid-column:1/-1">
+          <div class="empty-icon-box"><i class="fa fa-spinner fa-spin"></i></div>
+          <h3>Loading…</h3>
+        </div>
+      </div>
+
+    </div><!-- /panel-vehicles -->
+
+    <!-- ── UNREGISTERED DEVICES PANEL ─────────────────────────── -->
+    <div class="tab-panel" id="panel-unregistered">
+
+      <div id="unregisteredAlertBanner" class="alert-banner" style="display:none">
+        <i class="fa fa-triangle-exclamation"></i>
+        <div class="alert-banner-text">
+          <strong id="unregisteredAlertTitle">Unregistered devices detected</strong>
+          <span>These GPS devices are assigned to your account but have no vehicle linked yet.</span>
+        </div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="toolbar-row">
+        <div class="search-box">
+          <i class="fa fa-search search-icon"></i>
+          <input type="text" id="searchUnregd" placeholder="Search device ID…" oninput="renderUnregistered()"/>
+        </div>
+        <div style="flex:1"></div>
+        <button class="btn btn-ghost btn-sm" onclick="loadData()">
+          <i class="fa fa-rotate"></i> Refresh
+        </button>
+      </div>
+
+      <!-- Device cards -->
+      <div class="unregistered-grid" id="unregisteredGrid">
+        <div class="empty-state" style="grid-column:1/-1">
+          <div class="empty-icon-box"><i class="fa fa-spinner fa-spin"></i></div>
+          <h3>Loading…</h3>
+        </div>
+      </div>
+
+    </div><!-- /panel-unregistered -->
+
+  </div><!-- /content -->
+
+</div><!-- /page -->
+
+
+<!-- ═══════════════════════════════════════════════════════════════
+     VEHICLE FORM MODAL  (Add / Edit)
+════════════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="formModal">
+  <div class="modal-box">
+
+    <div class="modal-head">
+      <h3 id="formTitle">Add Vehicle</h3>
+      <button class="modal-close" onclick="closeFormModal()"><i class="fa fa-xmark"></i></button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Shown when opening from an unregistered device -->
+      <div class="device-preview-box" id="devicePreviewBox" style="display:none">
+        <i class="fa fa-mobile-screen"></i>
+        <div>
+          <div style="font-size:10px;color:#92400e;font-weight:700;text-transform:uppercase;margin-bottom:2px;">
+            Assigning Device
+          </div>
+          <span id="devicePreviewId"></span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Vehicle Name *</label>
+          <input type="text" id="inputName" placeholder="e.g. Bus Unit 1"/>
+        </div>
+        <div class="form-group">
+          <label>Plate Number *</label>
+          <input type="text" id="inputPlate" placeholder="e.g. ABC-1234"/>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Status</label>
+          <select id="inputStatus">
+            <option value="available">Available</option>
+            <option value="in_service">In Service</option>
+            <option value="maintenance">Maintenance</option>
+            <option value="out_of_service">Out of Service</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Assign Route</label>
+          <select id="inputRoute"><option value="">— No Route —</option></select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Assign Driver</label>
+          <select id="inputDriver"><option value="">— No Driver —</option></select>
+        </div>
+        <div class="form-group">
+          <label>Assign GPS Device</label>
+          <select id="inputDevice"><option value="">— No Device —</option></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeFormModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="saveBtn" onclick="saveVehicle()">
+        <i class="fa fa-save"></i> Save
+      </button>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════
+     DELETE CONFIRMATION MODAL
+════════════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal-box" style="max-width:400px">
+
+    <div class="confirm-body">
+      <div class="confirm-icon"><i class="fa fa-trash"></i></div>
+      <h3>Delete Vehicle?</h3>
+      <p id="confirmMsg">This cannot be undone.</p>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeConfirmModal()">Cancel</button>
+      <button class="btn btn-sm" style="background:var(--danger);color:#fff" onclick="confirmDelete()">
+        <i class="fa fa-trash"></i> Delete
+      </button>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ── TOAST ─────────────────────────────────────────────────────── -->
+<div class="toast" id="toast">
+  <i class="fa fa-circle-check"></i>
+  <span id="toastMsg">Done!</span>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SCRIPTS  (order matters)
+════════════════════════════════════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="utils.js"></script>
+<script src="data.js"></script>
+<script src="vehicles.js"></script>
+<script src="unregistered.js"></script>
+<script src="modals.js"></script>
+<script src="config.js"></script><!-- Last: kicks off session + loadData() -->
+
+</body>
+</html>

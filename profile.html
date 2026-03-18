@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Profile Settings</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+      :root {
+        --bg:#f7f8fa; --surface:#ffffff; --surface-alt:#f0f2f5;
+        --navy:#0f1f3d; --navy-light:#1a3460;
+        --accent:#2563eb; --accent-light:#eef4ff;
+        --success:#16a34a; --success-light:#ecfdf5;
+        --danger:#dc2626; --danger-light:#fef2f2;
+        --warn:#d97706; --warn-light:#fffbeb;
+        --purple:#7c3aed; --purple-light:#f5f3ff;
+        --text-primary:#0f1f3d; --text-second:#64748b; --text-muted:#94a3b8;
+        --divider:#e2e8f0; --radius:12px; --radius-sm:8px;
+      }
+      *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+      html,body{margin:0;padding:0;font-family:"DM Sans",sans-serif;background:transparent;color:var(--text-primary);}
+      .module{display:flex;flex-direction:column;gap:24px;padding:20px;}
+      .card{background:var(--surface);border:1px solid var(--divider);border-radius:var(--radius);overflow:hidden;}
+      .card-head{padding:16px 20px;border-bottom:1px solid var(--divider);display:flex;align-items:center;gap:12px;}
+      .card-head-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+      .chi-purple{background:var(--purple-light);color:var(--purple);}
+      .card-head-info h2{font-size:14px;font-weight:800;letter-spacing:-0.2px;margin:0;}
+      .card-head-info p{font-size:11.5px;color:var(--text-muted);margin:1px 0 0;}
+      .card-body{padding:20px;}
+      .profile-hero{display:flex;align-items:center;gap:20px;padding:20px;background:linear-gradient(135deg,var(--navy) 0%,var(--navy-light) 100%);border-radius:var(--radius) var(--radius) 0 0;position:relative;overflow:hidden;}
+      .profile-hero::before{content:"";position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");}
+      .profile-avatar{width:72px;height:72px;border-radius:18px;background:rgba(255,255,255,0.15);border:2px solid rgba(255,255,255,0.25);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:#fff;flex-shrink:0;letter-spacing:-1px;backdrop-filter:blur(4px);position:relative;z-index:1;}
+      .profile-info{flex:1;position:relative;z-index:1;}
+      .profile-name{font-size:18px;font-weight:800;color:#fff;letter-spacing:-0.3px;}
+      .profile-email{font-size:12.5px;color:rgba(255,255,255,0.65);margin-top:3px;}
+      .profile-company{font-size:11.5px;color:rgba(255,255,255,0.5);margin-top:2px;display:flex;align-items:center;gap:5px;}
+      .profile-company i{font-size:10px;}
+      .profile-badge{display:inline-flex;align-items:center;gap:5px;margin-top:8px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.9);}
+      .edit-btn{background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:7px 13px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;gap:6px;font-family:"DM Sans",sans-serif;flex-shrink:0;}
+      .edit-btn:hover{background:rgba(255,255,255,0.2);}
+      .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+      .form-grid.full{grid-template-columns:1fr;}
+      .form-group{display:flex;flex-direction:column;gap:6px;}
+      .form-group label{font-size:10.5px;font-weight:700;color:var(--text-second);text-transform:uppercase;letter-spacing:0.7px;}
+      .input-wrap{position:relative;}
+      .input-wrap i.ico{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--text-muted);pointer-events:none;transition:color 0.2s;}
+      .input-wrap:focus-within i.ico{color:var(--accent);}
+      .form-group input{width:100%;padding:9px 11px 9px 32px;background:var(--surface-alt);border:1.5px solid var(--divider);border-radius:var(--radius-sm);font-size:13px;font-family:"DM Sans",sans-serif;color:var(--text-primary);outline:none;transition:all 0.2s;}
+      .form-group input::placeholder{color:var(--text-muted);}
+      .form-group input:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px rgba(37,99,235,0.08);}
+      .form-group input:disabled{color:var(--text-muted);cursor:not-allowed;opacity:0.7;}
+      .form-error{font-size:11px;color:var(--danger);display:none;}
+      .form-error.show{display:block;}
+      .pass-wrap{position:relative;}
+      .pass-wrap input{padding-right:38px !important;}
+      .pass-eye{position:absolute;right:11px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:13px;}
+      .pass-eye:hover{color:var(--text-primary);}
+      .pass-strength{margin-top:6px;}
+      .strength-bar{height:3px;border-radius:2px;background:var(--divider);overflow:hidden;margin-bottom:4px;}
+      .strength-fill{height:100%;border-radius:2px;transition:width 0.3s,background 0.3s;width:0;}
+      .strength-label{font-size:10.5px;font-weight:600;color:var(--text-muted);}
+      .card-footer{padding:14px 20px;border-top:1px solid var(--divider);background:var(--bg);display:flex;align-items:center;justify-content:space-between;border-radius:0 0 var(--radius) var(--radius);}
+      .footer-hint{font-size:11.5px;color:var(--text-muted);}
+      .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 16px;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:700;font-family:"DM Sans",sans-serif;cursor:pointer;transition:all 0.18s;}
+      .btn-primary{background:var(--navy);color:#fff;}
+      .btn-primary:hover:not(:disabled){background:var(--navy-light);}
+      .btn-primary:disabled{opacity:0.6;cursor:not-allowed;}
+      .btn-ghost{background:transparent;color:var(--text-second);border:1.5px solid var(--divider);}
+      .btn-ghost:hover{background:var(--surface-alt);}
+      .btn-sm{padding:7px 13px;font-size:12px;}
+      .btn-group{display:flex;gap:8px;}
+      .loading-overlay{position:fixed;inset:0;background:rgba(15,31,61,0.85);display:none;align-items:center;justify-content:center;z-index:999999;backdrop-filter:blur(4px);}
+      .loading-overlay.show{display:flex;}
+      .loading-spinner{width:48px;height:48px;border:4px solid rgba(255,255,255,0.2);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite;}
+      @keyframes spin{to{transform:rotate(360deg);}}
+    </style>
+  </head>
+  <body>
+    <div class="module" id="mainModule">
+      <!-- Profile Card -->
+      <div class="card">
+        <div class="profile-hero">
+          <div class="profile-avatar" id="heroInitials">--</div>
+          <div class="profile-info">
+            <div class="profile-name" id="heroName">Loading...</div>
+            <div class="profile-email" id="heroEmail">Loading...</div>
+            <div class="profile-company"><i class="fa fa-building"></i><span id="heroCompany">—</span></div>
+            <div class="profile-badge"><i class="fa fa-shield-halved"></i><span id="statusBadge">Active</span></div>
+          </div>
+          <button class="edit-btn" onclick="enableEdit()"><i class="fa fa-pen"></i> Edit Profile</button>
+        </div>
+        <div class="card-body">
+          <div class="form-grid full">
+            <div class="form-group">
+              <label>Full Name</label>
+              <div class="input-wrap"><i class="fa fa-user ico"></i><input type="text" id="profileName" placeholder="Loading..." disabled/></div>
+              <div class="form-error" id="errProfileName"></div>
+            </div>
+            <div class="form-group">
+              <label>Email Address</label>
+              <div class="input-wrap"><i class="fa fa-envelope ico"></i><input type="email" id="profileEmail" placeholder="Loading..." disabled/></div>
+              <div class="form-error" id="errProfileEmail"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer" id="profileFooter" style="display:none;">
+          <span class="footer-hint"><i class="fa fa-circle-info" style="color:var(--accent);margin-right:4px;"></i>Changes will be saved to your account.</span>
+          <div class="btn-group">
+            <button class="btn btn-ghost btn-sm" onclick="cancelEdit()">Cancel</button>
+            <button class="btn btn-primary btn-sm" onclick="saveProfile()"><i class="fa fa-floppy-disk"></i> Save</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Password Card -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-head-icon chi-purple"><i class="fa fa-lock"></i></div>
+          <div class="card-head-info"><h2>Change Password</h2><p>Update your login password</p></div>
+        </div>
+        <div class="card-body">
+          <div class="form-grid">
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Current Password</label>
+              <div class="input-wrap pass-wrap">
+                <i class="fa fa-lock ico"></i>
+                <input type="password" id="currentPass" placeholder="Enter current password"/>
+                <button class="pass-eye" type="button" onclick="togglePass('currentPass','eye1')"><i class="fa fa-eye" id="eye1"></i></button>
+              </div>
+              <div class="form-error" id="errCurrentPass"></div>
+            </div>
+            <div class="form-group">
+              <label>New Password</label>
+              <div class="input-wrap pass-wrap">
+                <i class="fa fa-lock ico"></i>
+                <input type="password" id="newPass" placeholder="Min. 8 characters" oninput="checkStrength(this.value)"/>
+                <button class="pass-eye" type="button" onclick="togglePass('newPass','eye2')"><i class="fa fa-eye" id="eye2"></i></button>
+              </div>
+              <div class="pass-strength">
+                <div class="strength-bar"><div class="strength-fill" id="strengthFill"></div></div>
+                <div class="strength-label" id="strengthLabel">Enter a password</div>
+              </div>
+              <div class="form-error" id="errNewPass"></div>
+            </div>
+            <div class="form-group">
+              <label>Confirm New Password</label>
+              <div class="input-wrap pass-wrap">
+                <i class="fa fa-lock ico"></i>
+                <input type="password" id="confirmPass" placeholder="Re-enter new password"/>
+                <button class="pass-eye" type="button" onclick="togglePass('confirmPass','eye3')"><i class="fa fa-eye" id="eye3"></i></button>
+              </div>
+              <div class="form-error" id="errConfirmPass"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card-footer">
+          <span class="footer-hint"><i class="fa fa-shield" style="color:var(--success);margin-right:4px;"></i>Use at least 8 characters.</span>
+          <button class="btn btn-primary btn-sm" onclick="changePassword()"><i class="fa fa-rotate"></i> Update</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="loading-overlay" id="loadingOverlay"><div class="loading-spinner"></div></div>
+
+    <script>
+      // ── Same Supabase project & session key as login.html ──
+      const SUPABASE_URL      = 'https://tvbzpdjsyuxiguqrpfag.supabase.co';
+      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2YnpwZGpzeXV4aWd1cXJwZmFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NzgxMDgsImV4cCI6MjA4ODM1NDEwOH0.JS04q7iiTPVnGIKS9kCa6sFzl0Cr6ot2rx-jTs9m6dQ';
+      const SESSION_KEY       = 'ca_session';
+      const TABLE             = 'client_admin';
+
+      const { createClient } = supabase;
+      const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      let currentAdmin = null;
+      let originalName = '', originalEmail = '';
+
+      function showLoading() { document.getElementById('loadingOverlay').classList.add('show'); }
+      function hideLoading() { document.getElementById('loadingOverlay').classList.remove('show'); }
+      function sendToast(msg, type='success') { window.parent.postMessage({type:'toast',message:msg,messageType:type},'*'); }
+      function resizeFrame() { window.parent.postMessage({type:'resizeFrame',height:document.body.scrollHeight},'*'); }
+      function getInitials(name) { return name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2); }
+
+      // ── Get session set by login.html ──
+      function getSession() {
+        try {
+          const s = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
+          if (s && new Date(s.expires_at) > new Date()) return s;
+        } catch(e) {}
+        return null;
+      }
+
+      // ── Load admin profile from DB using session id ──
+      async function init() {
+        showLoading();
+        const session = getSession();
+        if (!session) { hideLoading(); sendToast('Session expired. Please log in again.', 'error'); return; }
+
+        const { data, error } = await sb
+          .from(TABLE)
+          .select('*, client(company)')
+          .eq('id', session.id)
+          .eq('status', 'active')
+          .single();
+
+        if (error || !data) {
+          hideLoading();
+          sendToast('Could not load profile.', 'error');
+          return;
+        }
+
+        currentAdmin = data;
+        document.getElementById('heroName').textContent    = data.name;
+        document.getElementById('heroEmail').textContent   = data.email;
+        document.getElementById('heroCompany').textContent = (data.client && data.client.company) ? data.client.company : '—';
+        document.getElementById('heroInitials').textContent = getInitials(data.name);
+        document.getElementById('profileName').value       = data.name;
+        document.getElementById('profileEmail').value      = data.email;
+        document.getElementById('statusBadge').textContent = data.status === 'active' ? 'Active' : data.status;
+
+        hideLoading();
+        resizeFrame();
+      }
+
+      // ── Edit profile ──
+      function enableEdit() {
+        originalName  = document.getElementById('profileName').value;
+        originalEmail = document.getElementById('profileEmail').value;
+        document.getElementById('profileName').disabled  = false;
+        document.getElementById('profileEmail').disabled = false;
+        document.getElementById('profileName').focus();
+        document.getElementById('profileFooter').style.display = 'flex';
+        resizeFrame();
+      }
+
+      function cancelEdit() {
+        document.getElementById('profileName').value    = originalName;
+        document.getElementById('profileEmail').value   = originalEmail;
+        document.getElementById('profileName').disabled  = true;
+        document.getElementById('profileEmail').disabled = true;
+        document.getElementById('profileFooter').style.display = 'none';
+        ['errProfileName','errProfileEmail'].forEach(id => document.getElementById(id).classList.remove('show'));
+        resizeFrame();
+      }
+
+      async function saveProfile() {
+        const name  = document.getElementById('profileName').value.trim();
+        const email = document.getElementById('profileEmail').value.trim();
+        let ok = true;
+        const showErr = (id, msg) => { const e=document.getElementById(id); e.textContent=msg; e.classList.add('show'); ok=false; };
+        const hideErr = (id) => document.getElementById(id).classList.remove('show');
+
+        if (!name) showErr('errProfileName','Name is required.'); else hideErr('errProfileName');
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) showErr('errProfileEmail','Enter a valid email.'); else hideErr('errProfileEmail');
+        if (!ok) return;
+
+        showLoading();
+        const { error } = await sb.from(TABLE).update({ name, email, updated_at: new Date().toISOString() }).eq('id', currentAdmin.id);
+        if (error) { hideLoading(); sendToast('Failed to update: ' + error.message, 'error'); return; }
+
+        document.getElementById('heroName').textContent     = name;
+        document.getElementById('heroEmail').textContent    = email;
+        document.getElementById('heroInitials').textContent = getInitials(name);
+        document.getElementById('profileName').disabled     = true;
+        document.getElementById('profileEmail').disabled    = true;
+        document.getElementById('profileFooter').style.display = 'none';
+        currentAdmin.name  = name;
+        currentAdmin.email = email;
+
+        // Update session
+        const session = getSession();
+        if (session) { session.name = name; session.email = email; sessionStorage.setItem(SESSION_KEY, JSON.stringify(session)); }
+
+        hideLoading();
+        sendToast('Profile updated successfully.', 'success');
+        resizeFrame();
+      }
+
+      // ── Password ──
+      function checkStrength(val) {
+        const fill = document.getElementById('strengthFill');
+        const label = document.getElementById('strengthLabel');
+        if (!val) { fill.style.width='0'; label.textContent='Enter a password'; label.style.color='var(--text-muted)'; return; }
+        let score = 0;
+        if (val.length>=8) score++; if (val.length>=12) score++;
+        if (/[A-Z]/.test(val)) score++; if (/[0-9]/.test(val)) score++; if (/[^A-Za-z0-9]/.test(val)) score++;
+        const levels=[{w:'20%',c:'var(--danger)',l:'Very weak'},{w:'40%',c:'var(--danger)',l:'Weak'},{w:'60%',c:'var(--warn)',l:'Fair'},{w:'80%',c:'var(--accent)',l:'Strong'},{w:'100%',c:'var(--success)',l:'Very strong'}];
+        const lv = levels[Math.min(score,4)];
+        fill.style.width=lv.w; fill.style.background=lv.c; label.textContent=lv.l; label.style.color=lv.c;
+      }
+
+      function togglePass(inputId, iconId) {
+        const inp = document.getElementById(inputId);
+        const ico = document.getElementById(iconId);
+        inp.type = inp.type==='password' ? 'text' : 'password';
+        ico.className = inp.type==='password' ? 'fa fa-eye' : 'fa fa-eye-slash';
+      }
+
+      async function changePassword() {
+        const cur  = document.getElementById('currentPass').value;
+        const newP = document.getElementById('newPass').value;
+        const conf = document.getElementById('confirmPass').value;
+        let ok = true;
+        const showErr = (id,msg) => { const e=document.getElementById(id); e.textContent=msg; e.classList.add('show'); ok=false; };
+        const hideErr = (id) => document.getElementById(id).classList.remove('show');
+
+        if (!cur) showErr('errCurrentPass','Current password is required.'); else hideErr('errCurrentPass');
+        if (!newP) showErr('errNewPass','New password is required.'); else if (newP.length<8) showErr('errNewPass','Must be at least 8 characters.'); else hideErr('errNewPass');
+        if (newP && newP!==conf) showErr('errConfirmPass','Passwords do not match.'); else hideErr('errConfirmPass');
+        if (!ok) return;
+
+        showLoading();
+
+        // Login.html stores passwords as plain text — verify the same way
+        if (currentAdmin.password_hash !== cur) {
+          hideLoading();
+          showErr('errCurrentPass','Current password is incorrect.');
+          return;
+        }
+
+        // Save new password as plain text (matching login.html behavior)
+        const { error } = await sb.from(TABLE).update({ password_hash: newP, updated_at: new Date().toISOString() }).eq('id', currentAdmin.id);
+        if (error) { hideLoading(); sendToast('Failed to update password: ' + error.message, 'error'); return; }
+
+        currentAdmin.password_hash = newP;
+        document.getElementById('currentPass').value = '';
+        document.getElementById('newPass').value = '';
+        document.getElementById('confirmPass').value = '';
+        checkStrength('');
+        hideLoading();
+        sendToast('Password updated successfully.', 'success');
+      }
+
+      init();
+    </script>
+  </body>
+</html>
