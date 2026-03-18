@@ -499,7 +499,7 @@
       return s;
     } catch(e) { $("sessionOverlay").classList.add("show"); return null; }
   }
-  function goLogin() { sessionStorage.removeItem("ca_session"); window.location.href = "../LOGIN/index.html"; }
+  function goLogin() { sessionStorage.removeItem("ca_session"); window.location.href = "index.html"; }
   setInterval(() => getSession(), 60_000);
 
   /* ── WS status chip ── */

@@ -402,7 +402,7 @@ let CLIENT_ID = null;
     CLIENT_ID = s.client_id;
     document.getElementById('clientLabel').textContent = `${s.name || 'Admin'} — ${s.email || ''}`;
   } catch(e) {
-    try { window.top.location.href = '../ACCOUNT/login.html'; } catch(_) {}
+    try { window.top.location.href = 'login.html'; } catch(_) {}
     document.querySelector('.page').innerHTML = `
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:40px;">
         <div style="font-size:48px;margin-bottom:16px">🔒</div>

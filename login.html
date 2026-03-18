@@ -384,7 +384,7 @@
           // Redirect to dashboard
           btn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Success! Redirecting…';
           setTimeout(() => {
-            window.location.href = '../ADMIN/index.html';
+            window.location.href = 'index.html';
           }, 800);
 
         } catch(e) {
@@ -400,7 +400,7 @@
         try {
           const s = JSON.parse(sessionStorage.getItem('ca_session') || 'null');
           if(s && new Date(s.expires_at) > new Date()){
-            window.location.href = '../ADMIN/index.html';
+            window.location.href = 'index.html';
           }
         } catch(e){}
       })();
