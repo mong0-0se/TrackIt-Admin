@@ -8,17 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-      :root {
-        --bg:#f7f8fa; --surface:#ffffff; --surface-alt:#f0f2f5;
-        --navy:#0f1f3d; --navy-light:#1a3460;
-        --accent:#2563eb; --accent-light:#eef4ff;
-        --success:#16a34a; --success-light:#ecfdf5;
-        --danger:#dc2626; --danger-light:#fef2f2;
-        --warn:#d97706; --warn-light:#fffbeb;
-        --purple:#7c3aed; --purple-light:#f5f3ff;
-        --text-primary:#0f1f3d; --text-second:#64748b; --text-muted:#94a3b8;
-        --divider:#e2e8f0; --radius:12px; --radius-sm:8px;
-      }
+      :root { --bg:#f7f8fa; --surface:#ffffff; --surface-alt:#f0f2f5; --navy:#0f1f3d; --navy-light:#1a3460; --accent:#2563eb; --accent-light:#eef4ff; --success:#16a34a; --success-light:#ecfdf5; --danger:#dc2626; --danger-light:#fef2f2; --warn:#d97706; --warn-light:#fffbeb; --purple:#7c3aed; --purple-light:#f5f3ff; --text-primary:#0f1f3d; --text-second:#64748b; --text-muted:#94a3b8; --divider:#e2e8f0; --radius:12px; --radius-sm:8px; }
       *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
       html,body{margin:0;padding:0;font-family:"DM Sans",sans-serif;background:transparent;color:var(--text-primary);}
       .module{display:flex;flex-direction:column;gap:24px;padding:20px;}
@@ -78,8 +68,7 @@
     </style>
   </head>
   <body>
-    <div class="module" id="mainModule">
-      <!-- Profile Card -->
+    <div class="module">
       <div class="card">
         <div class="profile-hero">
           <div class="profile-avatar" id="heroInitials">--</div>
@@ -114,7 +103,6 @@
         </div>
       </div>
 
-      <!-- Password Card -->
       <div class="card">
         <div class="card-head">
           <div class="card-head-icon chi-purple"><i class="fa fa-lock"></i></div>
@@ -164,68 +152,48 @@
 
     <div class="loading-overlay" id="loadingOverlay"><div class="loading-spinner"></div></div>
 
-    <script>
-      // ── Same Supabase project & session key as login.html ──
+    <script type="module">
+      import bcrypt from 'https://esm.sh/bcryptjs@2.4.3';
+
       const SUPABASE_URL      = 'https://tvbzpdjsyuxiguqrpfag.supabase.co';
       const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2YnpwZGpzeXV4aWd1cXJwZmFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI3NzgxMDgsImV4cCI6MjA4ODM1NDEwOH0.JS04q7iiTPVnGIKS9kCa6sFzl0Cr6ot2rx-jTs9m6dQ';
-      const SESSION_KEY       = 'ca_session';
-      const TABLE             = 'client_admin';
-
-      const { createClient } = supabase;
+      const SESSION_KEY = 'ca_session';
+      const TABLE       = 'client_admin';
+      const { createClient } = window.supabase;
       const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
       let currentAdmin = null;
       let originalName = '', originalEmail = '';
 
-      function showLoading() { document.getElementById('loadingOverlay').classList.add('show'); }
-      function hideLoading() { document.getElementById('loadingOverlay').classList.remove('show'); }
-      function sendToast(msg, type='success') { window.parent.postMessage({type:'toast',message:msg,messageType:type},'*'); }
-      function resizeFrame() { window.parent.postMessage({type:'resizeFrame',height:document.body.scrollHeight},'*'); }
-      function getInitials(name) { return name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2); }
+      const showLoading = () => document.getElementById('loadingOverlay').classList.add('show');
+      const hideLoading = () => document.getElementById('loadingOverlay').classList.remove('show');
+      const sendToast   = (msg, type='success') => window.parent.postMessage({type:'toast',message:msg,messageType:type},'*');
+      const resizeFrame = () => window.parent.postMessage({type:'resizeFrame',height:document.body.scrollHeight},'*');
+      const getInitials = name => name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
 
-      // ── Get session set by login.html ──
       function getSession() {
-        try {
-          const s = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
-          if (s && new Date(s.expires_at) > new Date()) return s;
-        } catch(e) {}
+        try { const s = JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null'); if(s && new Date(s.expires_at)>new Date()) return s; } catch(e){}
         return null;
       }
 
-      // ── Load admin profile from DB using session id ──
       async function init() {
         showLoading();
         const session = getSession();
-        if (!session) { hideLoading(); sendToast('Session expired. Please log in again.', 'error'); return; }
-
-        const { data, error } = await sb
-          .from(TABLE)
-          .select('*, client(company)')
-          .eq('id', session.id)
-          .eq('status', 'active')
-          .single();
-
-        if (error || !data) {
-          hideLoading();
-          sendToast('Could not load profile.', 'error');
-          return;
-        }
-
+        if (!session) { hideLoading(); sendToast('Session expired. Please log in again.','error'); return; }
+        const { data, error } = await sb.from(TABLE).select('*, client(company)').eq('id',session.id).eq('status','active').single();
+        if (error||!data) { hideLoading(); sendToast('Could not load profile.','error'); return; }
         currentAdmin = data;
-        document.getElementById('heroName').textContent    = data.name;
-        document.getElementById('heroEmail').textContent   = data.email;
-        document.getElementById('heroCompany').textContent = (data.client && data.client.company) ? data.client.company : '—';
+        document.getElementById('heroName').textContent     = data.name;
+        document.getElementById('heroEmail').textContent    = data.email;
+        document.getElementById('heroCompany').textContent  = (data.client&&data.client.company)?data.client.company:'—';
         document.getElementById('heroInitials').textContent = getInitials(data.name);
-        document.getElementById('profileName').value       = data.name;
-        document.getElementById('profileEmail').value      = data.email;
-        document.getElementById('statusBadge').textContent = data.status === 'active' ? 'Active' : data.status;
-
-        hideLoading();
-        resizeFrame();
+        document.getElementById('profileName').value        = data.name;
+        document.getElementById('profileEmail').value       = data.email;
+        document.getElementById('statusBadge').textContent  = data.status==='active'?'Active':data.status;
+        hideLoading(); resizeFrame();
       }
 
-      // ── Edit profile ──
-      function enableEdit() {
+      window.enableEdit = function() {
         originalName  = document.getElementById('profileName').value;
         originalEmail = document.getElementById('profileEmail').value;
         document.getElementById('profileName').disabled  = false;
@@ -233,105 +201,103 @@
         document.getElementById('profileName').focus();
         document.getElementById('profileFooter').style.display = 'flex';
         resizeFrame();
-      }
+      };
 
-      function cancelEdit() {
-        document.getElementById('profileName').value    = originalName;
-        document.getElementById('profileEmail').value   = originalEmail;
+      window.cancelEdit = function() {
+        document.getElementById('profileName').value     = originalName;
+        document.getElementById('profileEmail').value    = originalEmail;
         document.getElementById('profileName').disabled  = true;
         document.getElementById('profileEmail').disabled = true;
         document.getElementById('profileFooter').style.display = 'none';
         ['errProfileName','errProfileEmail'].forEach(id => document.getElementById(id).classList.remove('show'));
         resizeFrame();
-      }
+      };
 
-      async function saveProfile() {
+      window.saveProfile = async function() {
         const name  = document.getElementById('profileName').value.trim();
         const email = document.getElementById('profileEmail').value.trim();
         let ok = true;
-        const showErr = (id, msg) => { const e=document.getElementById(id); e.textContent=msg; e.classList.add('show'); ok=false; };
+        const showErr = (id,msg) => { const e=document.getElementById(id); e.textContent=msg; e.classList.add('show'); ok=false; };
         const hideErr = (id) => document.getElementById(id).classList.remove('show');
-
-        if (!name) showErr('errProfileName','Name is required.'); else hideErr('errProfileName');
-        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) showErr('errProfileEmail','Enter a valid email.'); else hideErr('errProfileEmail');
+        if (!name)  showErr('errProfileName','Name is required.'); else hideErr('errProfileName');
+        if (!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) showErr('errProfileEmail','Enter a valid email.'); else hideErr('errProfileEmail');
         if (!ok) return;
-
         showLoading();
-        const { error } = await sb.from(TABLE).update({ name, email, updated_at: new Date().toISOString() }).eq('id', currentAdmin.id);
-        if (error) { hideLoading(); sendToast('Failed to update: ' + error.message, 'error'); return; }
-
+        const { error } = await sb.from(TABLE).update({name,email,updated_at:new Date().toISOString()}).eq('id',currentAdmin.id);
+        if (error) { hideLoading(); sendToast('Failed to update: '+error.message,'error'); return; }
         document.getElementById('heroName').textContent     = name;
         document.getElementById('heroEmail').textContent    = email;
         document.getElementById('heroInitials').textContent = getInitials(name);
         document.getElementById('profileName').disabled     = true;
         document.getElementById('profileEmail').disabled    = true;
         document.getElementById('profileFooter').style.display = 'none';
-        currentAdmin.name  = name;
-        currentAdmin.email = email;
-
-        // Update session
+        currentAdmin.name = name; currentAdmin.email = email;
         const session = getSession();
-        if (session) { session.name = name; session.email = email; sessionStorage.setItem(SESSION_KEY, JSON.stringify(session)); }
+        if (session) { session.name=name; session.email=email; sessionStorage.setItem(SESSION_KEY,JSON.stringify(session)); }
+        hideLoading(); sendToast('Profile updated successfully.','success'); resizeFrame();
+      };
 
-        hideLoading();
-        sendToast('Profile updated successfully.', 'success');
-        resizeFrame();
-      }
-
-      // ── Password ──
-      function checkStrength(val) {
-        const fill = document.getElementById('strengthFill');
-        const label = document.getElementById('strengthLabel');
+      window.checkStrength = function(val) {
+        const fill=document.getElementById('strengthFill'); const label=document.getElementById('strengthLabel');
         if (!val) { fill.style.width='0'; label.textContent='Enter a password'; label.style.color='var(--text-muted)'; return; }
-        let score = 0;
-        if (val.length>=8) score++; if (val.length>=12) score++;
-        if (/[A-Z]/.test(val)) score++; if (/[0-9]/.test(val)) score++; if (/[^A-Za-z0-9]/.test(val)) score++;
+        let score=0;
+        if(val.length>=8)score++; if(val.length>=12)score++;
+        if(/[A-Z]/.test(val))score++; if(/[0-9]/.test(val))score++; if(/[^A-Za-z0-9]/.test(val))score++;
         const levels=[{w:'20%',c:'var(--danger)',l:'Very weak'},{w:'40%',c:'var(--danger)',l:'Weak'},{w:'60%',c:'var(--warn)',l:'Fair'},{w:'80%',c:'var(--accent)',l:'Strong'},{w:'100%',c:'var(--success)',l:'Very strong'}];
-        const lv = levels[Math.min(score,4)];
+        const lv=levels[Math.min(score,4)];
         fill.style.width=lv.w; fill.style.background=lv.c; label.textContent=lv.l; label.style.color=lv.c;
-      }
+      };
 
-      function togglePass(inputId, iconId) {
-        const inp = document.getElementById(inputId);
-        const ico = document.getElementById(iconId);
-        inp.type = inp.type==='password' ? 'text' : 'password';
-        ico.className = inp.type==='password' ? 'fa fa-eye' : 'fa fa-eye-slash';
-      }
+      window.togglePass = function(inputId, iconId) {
+        const inp=document.getElementById(inputId); const ico=document.getElementById(iconId);
+        inp.type=inp.type==='password'?'text':'password';
+        ico.className=inp.type==='password'?'fa fa-eye':'fa fa-eye-slash';
+      };
 
-      async function changePassword() {
+      window.changePassword = async function() {
         const cur  = document.getElementById('currentPass').value;
         const newP = document.getElementById('newPass').value;
         const conf = document.getElementById('confirmPass').value;
         let ok = true;
         const showErr = (id,msg) => { const e=document.getElementById(id); e.textContent=msg; e.classList.add('show'); ok=false; };
         const hideErr = (id) => document.getElementById(id).classList.remove('show');
-
-        if (!cur) showErr('errCurrentPass','Current password is required.'); else hideErr('errCurrentPass');
-        if (!newP) showErr('errNewPass','New password is required.'); else if (newP.length<8) showErr('errNewPass','Must be at least 8 characters.'); else hideErr('errNewPass');
-        if (newP && newP!==conf) showErr('errConfirmPass','Passwords do not match.'); else hideErr('errConfirmPass');
+        if (!cur)  showErr('errCurrentPass','Current password is required.'); else hideErr('errCurrentPass');
+        if (!newP) showErr('errNewPass','New password is required.'); else if(newP.length<8) showErr('errNewPass','Must be at least 8 characters.'); else hideErr('errNewPass');
+        if (newP&&newP!==conf) showErr('errConfirmPass','Passwords do not match.'); else hideErr('errConfirmPass');
         if (!ok) return;
 
         showLoading();
 
-        // Login.html stores passwords as plain text — verify the same way
-        if (currentAdmin.password_hash !== cur) {
-          hideLoading();
-          showErr('errCurrentPass','Current password is incorrect.');
-          return;
+        // Re-fetch from DB to get current password_hash
+        const { data: fresh, error: fetchErr } = await sb.from(TABLE).select('id, password_hash').eq('id', currentAdmin.id).single();
+        if (fetchErr || !fresh) { hideLoading(); sendToast('Could not verify identity. Try refreshing.','error'); return; }
+
+        // Verify current password — supports both bcrypt and old plain text
+        const stored = fresh.password_hash;
+        let currentMatches = false;
+        if (stored && stored.startsWith('$2')) {
+          currentMatches = await bcrypt.compare(cur, stored);
+        } else {
+          currentMatches = stored === cur;
         }
 
-        // Save new password as plain text (matching login.html behavior)
-        const { error } = await sb.from(TABLE).update({ password_hash: newP, updated_at: new Date().toISOString() }).eq('id', currentAdmin.id);
-        if (error) { hideLoading(); sendToast('Failed to update password: ' + error.message, 'error'); return; }
+        if (!currentMatches) { hideLoading(); showErr('errCurrentPass','Current password is incorrect.'); return; }
 
-        currentAdmin.password_hash = newP;
+        // Hash new password with bcrypt
+        const salt    = await bcrypt.genSalt(10);
+        const newHash = await bcrypt.hash(newP, salt);
+
+        const { error } = await sb.from(TABLE).update({ password_hash: newHash, updated_at: new Date().toISOString() }).eq('id', currentAdmin.id);
+        if (error) { hideLoading(); sendToast('Failed to update password: '+error.message,'error'); return; }
+
+        currentAdmin.password_hash = newHash;
         document.getElementById('currentPass').value = '';
         document.getElementById('newPass').value = '';
         document.getElementById('confirmPass').value = '';
-        checkStrength('');
+        window.checkStrength('');
         hideLoading();
-        sendToast('Password updated successfully.', 'success');
-      }
+        sendToast('Password updated successfully.','success');
+      };
 
       init();
     </script>

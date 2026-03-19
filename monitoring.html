@@ -182,7 +182,7 @@ let CLIENT_ID = null;
 
 function showLock() {
   document.body.insertAdjacentHTML('beforeend', `<div class="lock-screen"><div class="lock-icon"><i class="fa fa-lock"></i></div><h2>Session Required</h2><p>Please log in to view trip monitoring.</p></div>`);
-  try { window.top.location.href = 'login.html'; } catch(e) {}
+  try { window.top.location.href = '../ACCOUNT/login.html'; } catch(e) {}
 }
 
 function updateTime() {
